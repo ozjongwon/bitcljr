@@ -8,9 +8,6 @@
            [java.awt.image BufferedImage]
            [java.awt Dimension]))
 
-(def scanning-active (atom true))
-(def current-frame (atom nil))
-
 (defn create-preview-window
   "Creates a preview window showing webcam feed"
   []
@@ -59,43 +56,27 @@
   "Continuously scans for QR codes until one is found"
   []
   (println "Initializing webcam...")
-  (reset! scanning-active true)  ; Reset the scanning state
 
   (if-let [webcam (init-webcam)]
     (let [window (create-preview-window)]
       (try
         (.open webcam)
         (println "Scanning for QR code... (Press Ctrl+C to stop)")
-        (loop []
-          (when @scanning-active
-            (let [image (.getImage webcam)]
-              (reset! current-frame image)
-              (update-preview window image)
-              (if-let [result (decode-qr-code image)]
-                (do
-                  (println "QR Code detected! Content:" result)
-                  result)
-                (do
-                  (Thread/sleep 100)  ; Small delay to prevent maxing out CPU
-                  (recur))))))
+        (loop [image (.getImage webcam)]
+          (update-preview window image)
+          (if-let [result (decode-qr-code image)]
+            (do
+              (println "QR Code detected! Content:" result)
+              result)
+            (do
+              (Thread/sleep 100)  ; Small delay to prevent maxing out CPU
+              (recur (.getImage webcam)))))
         (finally
-          (reset! scanning-active false)
-          (reset! current-frame nil)
           (when (.isOpen webcam)
             (.close webcam))
           (cleanup-window window))))
     (println "No webcam found!")))
 
-(defn stop-scanning!
-  "Stops the scanning process"
-  []
-  (reset! scanning-active false))
-
-;; Example usage:
-;; Start scanning:
-;; (scan-qr-code-continuously)
-;;
-;; To stop scanning from another REPL thread:
 ;; (stop-scanning!)
 
 ;; (ns qr-scanner.core
