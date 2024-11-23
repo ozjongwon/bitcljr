@@ -1,12 +1,18 @@
-(ns qr-scanner.core
-  (:require [clojure.java.io :as io])
+(ns wallet.qr
+  (:require [clojure.java.io :as io]
+            [wallet.base58 :as b58])
   (:import [com.github.sarxos.webcam Webcam]
            [com.google.zxing MultiFormatReader BinaryBitmap]
            [com.google.zxing.client.j2se BufferedImageLuminanceSource]
            [com.google.zxing.common HybridBinarizer]
            [javax.swing JFrame JLabel ImageIcon]
            [java.awt.image BufferedImage]
-           [java.awt Dimension]))
+           [java.awt Dimension]
+           [java.security MessageDigest]))
+
+;;;
+;;; QR reading
+;;;
 
 (defn create-preview-window
   "Creates a preview window showing webcam feed"
@@ -64,27 +70,16 @@
         (println "Scanning for QR code... (Press Ctrl+C to stop)")
         (loop [image (.getImage webcam)]
           (update-preview window image)
-          (if-let [result (decode-qr-code image)]
-            (do
-              (println "QR Code detected! Content:" result)
-              result)
-            (do
-              (Thread/sleep 100)  ; Small delay to prevent maxing out CPU
-              (recur (.getImage webcam)))))
+          (when (.isVisible (:frame window))
+            (if-let [result (decode-qr-code image)]
+              (do
+                (println "QR Code detected! Content:" result)
+                result)
+              (do
+                (Thread/sleep 100)       ; Small delay to prevent maxing out CPU
+                (recur (.getImage webcam))))))
         (finally
           (when (.isOpen webcam)
             (.close webcam))
           (cleanup-window window))))
     (println "No webcam found!")))
-
-;; (stop-scanning!)
-
-;; (ns qr-scanner.core
-;;   (:require [clojure.java.io :as io])
-;;   (:import [com.github.sarxos.webcam Webcam]
-;;            [com.google.zxing MultiFormatReader BinaryBitmap]
-;;            [com.google.zxing.client.j2se BufferedImageLuminanceSource]
-;;            [com.google.zxing.common HybridBinarizer]
-;;            [javax.swing JFrame JLabel ImageIcon]
-;;            [java.awt.image BufferedImage]
-;;            [java.awt Dimension]))
