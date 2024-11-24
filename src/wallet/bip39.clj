@@ -103,45 +103,71 @@
       (bit-and num)))
 
 (defn extract-11-bits-dynamic
-  [byte-array]
+  [byte-array len]
   (let [bytes (map #(bit-and % 0xff) byte-array)
         bit-length 11]
     (loop [[byte & more-bytes] (rest bytes)
            carry (first bytes)
            carry-bits 4 ;; first nibble
-           result []]
-      (if byte
+           result []
+           count len]
+      (if (zero? count)
+        result
         (let [combined (bit-or (bit-shift-left carry 8) (bit-and byte 0xff)) ; Merge carry and current byte
               n-available-bits (+ carry-bits 8)] ; Total available bits
-          (clojure.pprint/cl-format true "~%~D: ~8,'0b(~b) => ~b" carry-bits byte carry combined)
+          ;;          (clojure.pprint/cl-format true "~%~D: ~8,'0b(~b) => ~b" carry-bits byte carry combined)
           (if (>= n-available-bits bit-length)
             ;; If we have enough bits to extract an 11-bit value
             (let [shift-amount (- n-available-bits bit-length) ; Calculate how many bits to shift to extract the 11 bits
                   extracted-bits (bit-and (bit-shift-right combined shift-amount) 0x7FF) ; Extract the 11 bit
                   leftover-value (remove-first-n-bits bit-length combined n-available-bits)] ; Get remaining bits
-              (clojure.pprint/cl-format true " -> ~b" leftover-value)
+              ;;              (clojure.pprint/cl-format true " -> ~b" leftover-value)
               (recur more-bytes
                      leftover-value
                      shift-amount
-                     (conj result extracted-bits))) ; Add the 11 bits to the result
+                     (conj result extracted-bits)
+                     (dec count))) ; Add the 11 bits to the result
             ;; Not enough bits yet, so we accumulate more from the next byte
             (recur more-bytes
                    combined
                    n-available-bits
-                   result)))
-        ;; If no more bytes to process, or if we've already processed all bits in carry
-        result))))
+                   result
+                   (dec count))))))))
 
-(defn decode-compact-qr [seed-bytes lang-key]
-  (->> [lang-key (extract-11-bits-dynamic seed-bytes)]
-       (get-in +word-list+)))
+(defn decode-compact-qr [seed-bytes len lang-key]
+  (map #(get-in +word-list+ [lang-key %]) (extract-11-bits-dynamic seed-bytes len)))
+
+;; 4: Byte mode indicator
+;; 0f: length of 15 byte
+;; d15001...: your 15 bytes of data
+;; ec11 is just padding
 
 (defn decode-seed-qr
-  ([seed-str]
-   (decode-seed-qr seed-str :english))
-  ([seed-str lang-key]
-   (if (every? Character/isDigit seed-str)
-     (decode-standard-qr seed-str lang-key)
-     (decode-compact-qr seed-str lang-key))))
+  ([scan-result]
+   (decode-seed-qr scan-result :english))
+  ([{:keys [raw str]} lang-key]
+   (let [byte0 (first raw)
+         byte1 (second raw)
+         mode (case (bit-shift-right (bit-and byte0 0xff) 4)
+                0x0 :terminator
+                0x1 :numeric
+                0x2 :alphanumeric
+                0x3 :structured-append
+                0x4 :byte
+                0x5 :fnc1-first-position
+                0x7 :eci
+                0x8 :kanji
+                0x9 :fnc1-second-position
+                0xd :hanzi)
+         len (bit-or (bit-shift-left (bit-and byte0 0x0f) 4)
+                     (bit-shift-right (bit-and byte1 0xf0) 4))]
+     (case mode
+       :numeric (decode-standard-qr str lang-key)
+       :byte (-> byte1
+                 (bit-and 0x0f)
+                 (cons (nthrest raw 2))
+                 (decode-compact-qr
+                  len
+                  lang-key))))))
 
 ;;(decode-seed-qr "175603411269118717760390053917171617011703680513069916681107050611591746089620340812129017111526")

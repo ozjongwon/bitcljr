@@ -48,7 +48,8 @@
           bitmap (BinaryBitmap. (HybridBinarizer. source))
           reader (MultiFormatReader.)]
       (when-let [result (.decode reader bitmap)]
-        (.getRawBytes result)
+        {:raw (.getRawBytes result)
+         :str (.getText result)}
         #_
         {:version "???"
          :raw (.getRawBytes result)
