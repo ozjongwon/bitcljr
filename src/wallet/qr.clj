@@ -4,7 +4,9 @@
   (:import [com.github.sarxos.webcam Webcam]
            [com.google.zxing MultiFormatReader BinaryBitmap]
            [com.google.zxing.client.j2se BufferedImageLuminanceSource]
-           [com.google.zxing.common HybridBinarizer]
+           [com.google.zxing.common HybridBinarizer BitMatrix]
+           [com.google.zxing.qrcode QRCodeReader]
+           [com.google.zxing.qrcode.decoder Version]
            [javax.swing JFrame JLabel ImageIcon]
            [java.awt.image BufferedImage]
            [java.awt Dimension]
@@ -46,8 +48,24 @@
           bitmap (BinaryBitmap. (HybridBinarizer. source))
           reader (MultiFormatReader.)]
       (when-let [result (.decode reader bitmap)]
-        (.getText result)))
-    (catch Exception _
+        (.getRawBytes result)
+        #_
+        {:version "???"
+         :raw (.getRawBytes result)
+         :str (.getText result)
+         :num-bits (.getNumBits result)
+         :meta (.getResultMetadata result)}
+        ;; result (.decode reader bitmap) ;; Decode the QR code
+        ;; metadata (.getResultMetadata result) ;; Get the metadata
+        ;; byte-segments (.get metadata ResultMetadataType/BYTE_SEGMENTS)
+        #_
+        {:type (.getBarcodeFormat result)
+         :value (.getText result)
+
+         :num-bits (.getNumBits result)}))
+    (catch Exception e
+      (when-not (instance? com.google.zxing.NotFoundException e)
+        (println ">>>" e))
       nil)))
 
 (defn init-webcam
