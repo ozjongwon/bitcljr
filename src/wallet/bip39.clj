@@ -12,6 +12,8 @@
            [org.bouncycastle.asn1.sec SECNamedCurves]
            [org.bouncycastle.math.ec ECPoint]))
 
+(def ^:dynamic *lang-key*)
+
 ;;;
 ;;; Read the orignal wordlist files from 'resources'
 ;;;
@@ -39,15 +41,10 @@
                           list-txt-files
                           load-wordlists))
 
-;;;
-;;; Decoding Xhing QR result
-;;;
 
-(defn decode-standard-qr [seed-str lang-key]
-  (for [i (range (int (/ (count seed-str) 4)))
-        :let [idx0 (* i 4)
-              idx1 (+ idx0 4)]]
-    (get-in +word-list+ [lang-key (Integer/parseInt (subs seed-str idx0 idx1))])))
+;;;
+;;; Compact QR
+;;;
 
 (defn remove-first-n-bits [n num num-bits]
   ;; get num-of-bits, shift left, dec, shift-right, bit-and
@@ -105,33 +102,6 @@
                    result
                    (dec count))))))))
 
-(defn decode-compact-qr [seed-bytes len lang-key]
-  (assert (zero? (mod len 4)))
-  (map #(get-in +word-list+ [lang-key %]) (extract-11-bits-dynamic seed-bytes len)))
-
-(defn decode-seed-qr
-  ([scan-result]
-   (decode-seed-qr scan-result :english))
-  ([{:keys [raw str]} lang-key]
-   (let [byte0 (first raw)
-         byte1 (second raw)
-         mode (case (bit-shift-right (bit-and byte0 0xff) 4)
-                0x0 :terminator
-                0x1 :numeric
-                0x2 :alphanumeric
-                0x3 :structured-append
-                0x4 :byte
-                0x5 :fnc1-first-position
-                0x7 :eci
-                0x8 :kanji
-                0x9 :fnc1-second-position
-                0xd :hanzi)
-         len (bit-or (bit-shift-left (bit-and byte0 0x0f) 4)
-                     (bit-shift-right (bit-and byte1 0xf0) 4))]
-     (case mode
-       :numeric (decode-standard-qr str lang-key)
-       :byte (decode-compact-qr raw len lang-key)))))
-
 (defn add-checksum [bytev]
   (let [len (count bytev)]
     ;;    (assert (zero? (mod len 16)))
@@ -161,6 +131,15 @@
                    (conj result (bit-or (bit-shift-left carry offset) (bit-shift-right num to-byte)))))
 
           :finally (add-checksum result))))
+
+(defn indices->mnemonic [indices]
+  (map #(get-in +word-list+ [*lang-key* %]) indices))
+
+(defn bytes->mnemonic [bytes len]
+  (assert (zero? (mod len 4)))
+  (indices->mnemonic (extract-11-bits-dynamic bytes len)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn mnemonics->pbkdf2-sha512-kdf [mnemonics pw]
   (let [pbkdf2+sha512 (kdf/engine {:alg :pbkdf2+sha512

@@ -1,6 +1,7 @@
 (ns wallet.qr
   (:require [clojure.java.io :as io]
-            [wallet.base58 :as b58])
+            [wallet.base58 :as b58]
+            [wallet.bip39 :as b39])
   (:import [com.github.sarxos.webcam Webcam]
            [com.google.zxing MultiFormatReader BinaryBitmap]
            [com.google.zxing.client.j2se BufferedImageLuminanceSource]
@@ -16,7 +17,7 @@
 ;;; QR reading
 ;;;
 
-(defn create-preview-window
+(defn- create-preview-window
   "Creates a preview window showing webcam feed"
   []
   (let [frame (JFrame. "QR Scanner Preview")
@@ -28,19 +29,19 @@
     (.setVisible frame true)
     {:frame frame :label label}))
 
-(defn cleanup-window
+(defn- cleanup-window
   "Properly dispose of the preview window"
   [{:keys [frame]}]
   (when frame
     (.dispose frame)))
 
-(defn update-preview
+(defn- update-preview
   "Updates the preview window with current frame"
   [{:keys [label]} image]
   (when (and label image)
     (.setIcon label (ImageIcon. image))))
 
-(defn decode-qr-code
+(defn- decode-qr-code
   "Attempts to decode QR code from a buffered image"
   [^BufferedImage buffered-image]
   (try
@@ -49,27 +50,13 @@
           reader (MultiFormatReader.)]
       (when-let [result (.decode reader bitmap)]
         {:raw (.getRawBytes result)
-         :str (.getText result)}
-        #_
-        {:version "???"
-         :raw (.getRawBytes result)
-         :str (.getText result)
-         :num-bits (.getNumBits result)
-         :meta (.getResultMetadata result)}
-        ;; result (.decode reader bitmap) ;; Decode the QR code
-        ;; metadata (.getResultMetadata result) ;; Get the metadata
-        ;; byte-segments (.get metadata ResultMetadataType/BYTE_SEGMENTS)
-        #_
-        {:type (.getBarcodeFormat result)
-         :value (.getText result)
-
-         :num-bits (.getNumBits result)}))
+         :str (.getText result)}))
     (catch Exception e
       (when-not (instance? com.google.zxing.NotFoundException e)
         (println ">>>" e))
       nil)))
 
-(defn init-webcam
+(defn- init-webcam
   "Initialize and configure the webcam"
   []
   (let [webcam (Webcam/getDefault)]
@@ -102,3 +89,34 @@
             (.close webcam))
           (cleanup-window window))))
     (println "No webcam found!")))
+
+(defn- string->indices [standard-qr-str]
+  (for [i (range (int (/ (count standard-qr-str) 4)))
+        :let [idx0 (* i 4)
+              idx1 (+ idx0 4)]]
+    (Integer/parseInt (subs standard-qr-str idx0 idx1))))
+
+(defn decode-seed-qr
+  ([scan-result]
+   (decode-seed-qr scan-result :english))
+  ([{:keys [raw str]} lang-key]
+   (binding [b39/*lang-key* lang-key]
+     (let [byte0 (first raw)
+           byte1 (second raw)
+           mode (case (bit-shift-right (bit-and byte0 0xff) 4)
+                  0x0 :terminator
+                  0x1 :numeric
+                  0x2 :alphanumeric
+                  0x3 :structured-append
+                  0x4 :byte
+                  0x5 :fnc1-first-position
+                  0x7 :eci
+                  0x8 :kanji
+                  0x9 :fnc1-second-position
+                  0xd :hanzi)
+           len (bit-or (bit-shift-left (bit-and byte0 0x0f) 4)
+                       (bit-shift-right (bit-and byte1 0xf0) 4))]
+       (case mode
+         :numeric (-> (string->indices str)
+                      (b39/indices->mnemonic))
+         :byte (b39/bytes->mnemonic raw len))))))
