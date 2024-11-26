@@ -110,7 +110,7 @@
 
 (defn mnemonic->bytes
   ([mnemonics]
-   (mnemonic->bytes *lang-key*))
+   (mnemonic->bytes mnemonics *lang-key*))
   ([mnemonic lang-key]
    (let [wd-list (get +word-list+ lang-key)]
      (->> (map #(.indexOf wd-list %) mnemonic)
