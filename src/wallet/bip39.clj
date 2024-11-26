@@ -3,7 +3,14 @@
             [buddy.core.hash :as hash]
             [buddy.core.kdf :as kdf]
             [buddy.core.codecs :as codecs]
-            [wallet.base58 :as b58]))
+            [buddy.core.mac :as mac]
+            [wallet.base58 :as b58]
+            [wallet.bip32 :as b32]
+            [wallet.networks :as net])
+  (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
+           [org.bouncycastle.crypto.ec CustomNamedCurves]
+           [org.bouncycastle.asn1.sec SECNamedCurves]
+           [org.bouncycastle.math.ec ECPoint]))
 
 ;;;
 ;;; Read the orignal wordlist files from 'resources'
@@ -163,11 +170,11 @@
     (-> (kdf/get-bytes pbkdf2+sha512 64)
         (codecs/bytes->hex))))
 
-(defn mnemonic->seeds
+(defn mnemonic->seed
   ([mnemonic]
-   (mnemonic->seeds mnemonic nil))
+   (mnemonic->seed mnemonic nil))
   ([mnemonic passwd]
-   (mnemonic->seeds  mnemonic passwd :english))
+   (mnemonic->seed  mnemonic passwd :english))
   ([mnemonic passwd lang-key]
    ;; only supports 12, 24, ...
    ;;   (assert (zero? (mod (count mnemonic) 12)))
@@ -187,13 +194,13 @@
 
 
 
-   @classmethod
-   def from_seed(cls, seed: bytes, version=NETWORKS["main"]["xprv"]):
-   """Creates a root private key from 64-byte seed"""
-   raw = hmac.new(b"Bitcoin seed", seed, digestmod="sha512").digest()
-   private_key = ec.PrivateKey(raw[:32])
-   chain_code = raw[32:]
-   return cls(private_key, chain_code, version=version)
+   ;; @classmethod
+   ;; def from_seed(cls, seed: bytes, version=NETWORKS["main"]["xprv"]):
+   ;; """Creates a root private key from 64-byte seed"""
+   ;; raw = hmac.new(b"Bitcoin seed", seed, digestmod="sha512").digest()
+   ;; private_key = ec.PrivateKey(raw[:32])
+   ;; chain_code = raw[32:]
+   ;; return cls(private_key, chain_code, version=version)
 
    ))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -295,8 +302,75 @@
                      "01f5bced59dec48e362f2c45b5de68b9fd6c92c6634f44d6d40aab69056506f0e35524a518034ddc1192e1dacd32c1ed3eaa3c3b131c88ed8e7e54c49a5d0998"
                      "xprv9s21ZrQH143K39rnQJknpH1WEPFJrzmAqqasiDcVrNuk926oizzJDDQkdiTvNPr2FYDYzWgiMiC63YmfPAa2oPyNB23r2g7d1yiK6WpqaQS"]])
 
-(for [[seed mnemonic hex-seed xprv] test-data
-      :let [seed (-> (clojure.string/split mnemonic #" ")
-                     (mnemonic->seeds "TREZOR")
-                     (b58/encode))]]
-  [hex-seed seed])
+(comment
+  (for [[seed mnemonic hex-seed xprv] test-data
+        :let [seed (-> (clojure.string/split mnemonic #" ")
+                       (mnemonic->seed "TREZOR")
+                       (wallet.bip32/seed->hd-key)
+                       (wallet.bip32/encode-extended-key))]]
+    [hex-seed seed])
+  )
+
+
+(comment
+  (ns crypto.debug
+    (:require [buddy.core.mac :as mac]
+              [buddy.core.codecs :as codecs]
+              [clojure.string :as str]))
+
+  ;; First, let's make the seed generation explicit
+  (def test-mnemonic "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about")
+
+  (defn mnemonic->seed [mnemonic password]
+    (let [salt (str "mnemonic" (or password ""))
+          result (buddy.core.kdf/get-bytes
+                  (buddy.core.kdf/engine
+                   {:alg :pbkdf2
+                    :digest :sha512
+                    :key (.getBytes mnemonic "UTF-8")
+                    :salt (.getBytes salt "UTF-8")
+                    :iterations 2048})
+                  64)]
+      result))
+
+  (defn create-domain-params []
+    (let [curve secp256k1-curve]
+      (ECDomainParameters.
+       (.getCurve curve)    ; The curve equation
+       (.getG curve)        ; Generator point
+       (.getN curve))))     ; Field order
+
+  (defn debug-master-key-generation []
+    (let [ ;; 1. Generate seed
+          seed (mnemonic->seed test-mnemonic "")
+          _ (println "Seed (hex):" (codecs/bytes->hex seed))
+
+          ;; 2. Generate HMAC-SHA512
+          hmac-key (.getBytes "Bitcoin seed" "UTF-8")
+          raw (mac/hash seed {:key hmac-key :alg :hmac+sha512})
+          _ (println "HMAC (hex):" (codecs/bytes->hex raw))
+
+          ;; 3. Split into key and chain code
+          private-bytes (byte-array (take 32 raw))
+          chain-code (byte-array (drop 32 raw))
+          _ (println "Private key bytes (hex):" (codecs/bytes->hex private-bytes))
+          _ (println "Chain code (hex):" (codecs/bytes->hex chain-code))
+
+          ;; 4. Create EC private key
+          ;;domain (create-domain-params)
+          private-key (b32/create-private-key private-bytes)
+
+          ;; 5. Create final structure
+          master-key {:private-key private-key
+                      :chain-code chain-code
+                      :version (get-in net/+networks+ ["main" "xprv"])}
+
+          ;; 6. Encode
+          encoded (b32/encode-extended-key master-key)]
+
+      {:seed (codecs/bytes->hex seed)
+       :raw-hmac (codecs/bytes->hex raw)
+       :private-key-hex (codecs/bytes->hex private-bytes)
+       :chain-code-hex (codecs/bytes->hex chain-code)
+       :base58 encoded}))
+  )
