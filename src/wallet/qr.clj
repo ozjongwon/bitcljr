@@ -96,6 +96,27 @@
               idx1 (+ idx0 4)]]
     (Integer/parseInt (subs standard-qr-str idx0 idx1))))
 
+
+;; zxing's raw bytes # > len:
+;; mode(4bit) + character-count(8bit) + data(as much as 'char-counter')
+;; + padding
+(defn- realign-byte-array [qr-bute-array]
+  (let [byte0 (first qr-bute-array)
+        byte1 (second qr-bute-array)
+        len (bit-or (bit-shift-left (bit-and byte0 0x0f) 4)
+                    (bit-shift-right (bit-and byte1 0xf0) 4))]
+    (loop [nibble  (bit-and byte1 0x0f)
+           [byte & more-bytes] (nthrest qr-bute-array 2)
+           count len
+           result []]
+      (if (zero? count)
+        result
+        (recur (bit-and byte 0x0f)
+               more-bytes
+               (dec count)
+               (conj result (bit-or (bit-shift-left nibble 4)
+                                    (bit-shift-right (bit-and byte 0xf0) 4))))))))
+
 (defn decode-seed-qr
   ([scan-result]
    (decode-seed-qr scan-result :english))
@@ -113,10 +134,10 @@
                   0x7 :eci
                   0x8 :kanji
                   0x9 :fnc1-second-position
-                  0xd :hanzi)
-           len (bit-or (bit-shift-left (bit-and byte0 0x0f) 4)
-                       (bit-shift-right (bit-and byte1 0xf0) 4))]
+                  0xd :hanzi)]
        (case mode
          :numeric (-> (string->indices str)
                       (b39/indices->mnemonic))
-         :byte (b39/bytes->mnemonic raw len))))))
+         :byte (->  raw
+                    realign-byte-array
+                    b39/bytes->mnemonic))))))
