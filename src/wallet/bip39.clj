@@ -17,7 +17,7 @@
 ;;;
 ;;; Read the orignal wordlist files from 'resources'
 ;;;
-(defn load-wordlists [filenames]
+(defn- load-wordlists [filenames]
   (into {}
         (for [filename filenames]
           [(-> filename
@@ -29,7 +29,7 @@
            (with-open [reader (io/reader filename)]
              (vec (line-seq reader)))])))
 
-(defn list-txt-files [folder-path]
+(defn- list-txt-files [folder-path]
   (let [folder (io/file folder-path)]
     (when (.isDirectory folder)
       (->> (.listFiles folder)
@@ -41,12 +41,7 @@
                           list-txt-files
                           load-wordlists))
 
-
-;;;
-;;; Compact QR
-;;;
-
-(defn remove-first-n-bits [n num num-bits]
+(defn- remove-first-n-bits [n num num-bits]
   ;; get num-of-bits, shift left, dec, shift-right, bit-and
   (-> (bit-shift-left 1 num-bits)
       (dec)
@@ -82,7 +77,8 @@
                  result
                  count))))))
 
-(defn add-checksum [bytev]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn- add-checksum [bytev]
   (let [len (count bytev)]
     ;;    (assert (zero? (mod len 16)))
     (->> bytev
@@ -111,6 +107,15 @@
                    (conj result (bit-or (bit-shift-left carry offset) (bit-shift-right num to-byte)))))
 
           :finally (add-checksum result))))
+
+(defn mnemonic->bytes
+  ([mnemonics]
+   (mnemonic->bytes *lang-key*))
+  ([mnemonic lang-key]
+   (let [wd-list (get +word-list+ lang-key)]
+     (->> (map #(.indexOf wd-list %) mnemonic)
+          pack-11-bits-dynamic))))
+
 
 (defn indices->mnemonic [indices]
   (map #(get-in +word-list+ [*lang-key* %]) indices))
