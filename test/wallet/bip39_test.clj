@@ -125,13 +125,12 @@
                                         (bytes->mnemonic)
                                         (vec))]
                 (is (= actual-mnemonic expected-mnemonic))
-                (is (mnemonic->bytes actual-mnemonic))))
+                (is (= (bytes->hex-str (mnemonic->bytes actual-mnemonic))
+                       seed))))
             test-data))))
 
 ;;(run-tests)
 ;; act_xkey = HDKey.from_seed(
 ;;                            mnemonic_to_seed(act_mnemonic, password="TREZOR")
 ;;                            )
-;; self.assertTrue(mnemonic_is_valid(act_mnemonic))
-;; self.assertEqual(hexlify(mnemonic_to_bytes(act_mnemonic)).decode(), seed)
 ;; self.assertEqual(act_xkey.to_base58(), xprv)
