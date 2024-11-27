@@ -1,9 +1,9 @@
 (ns wallet.bip39-test
   (:require [clojure.test :refer :all]
             [wallet.bip39 :refer :all]
+            [wallet.base58 :as b58]
             [clojure.string :as str]))
 
-;;;
 ;;; From embit's test_bip39.py
 ;;;
 (defonce test-data [["00000000000000000000000000000000"
@@ -109,15 +109,29 @@
        (map read-string)
        (byte-array)))
 
+(defn bytes->hex-str [bytes]
+  (->> bytes
+       byte-array
+       (map #(format "%02x" %))
+       (apply str)))
+
 (deftest bip39-test
   (testing "Predefined test cases to check basic functions"
     (binding [*lang-key* :english]
       (run! (fn [[seed exp-mnemonic hex-seed xprv]]
-              (let [actual-mnemonic (->  seed
-                                         (hex-str->bytes)
-                                         (bytes->mnemonic)
-                                         (vec))]
-                (is (= actual-mnemonic (str/split exp-mnemonic #" ")))))
+              (let [expected-mnemonic (str/split exp-mnemonic #" ")
+                    actual-mnemonic (-> seed
+                                        (hex-str->bytes)
+                                        (bytes->mnemonic)
+                                        (vec))]
+                (is (= actual-mnemonic expected-mnemonic))
+                (is (mnemonic->bytes actual-mnemonic))))
             test-data))))
 
 ;;(run-tests)
+;; act_xkey = HDKey.from_seed(
+;;                            mnemonic_to_seed(act_mnemonic, password="TREZOR")
+;;                            )
+;; self.assertTrue(mnemonic_is_valid(act_mnemonic))
+;; self.assertEqual(hexlify(mnemonic_to_bytes(act_mnemonic)).decode(), seed)
+;; self.assertEqual(act_xkey.to_base58(), xprv)

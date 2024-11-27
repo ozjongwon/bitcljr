@@ -77,7 +77,6 @@
                  result
                  count))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- add-checksum [bytev]
   (let [len (count bytev)]
     ;;    (assert (zero? (mod len 16)))
@@ -106,15 +105,53 @@
                    to-byte
                    (conj result (bit-or (bit-shift-left carry offset) (bit-shift-right num to-byte)))))
 
-          :finally (add-checksum result))))
+          :finally  (if (pos? carry)
+                      (->> carry-bits
+                           (- 8)
+                           (bit-shift-left carry)
+                           (conj result))
+                      result))))
 
 (defn mnemonic->bytes
   ([mnemonics]
    (mnemonic->bytes mnemonics *lang-key*))
-  ([mnemonic lang-key]
-   (let [wd-list (get +word-list+ lang-key)]
-     (->> (map #(.indexOf wd-list %) mnemonic)
-          pack-11-bits-dynamic))))
+  ([mnemonics lang-key]
+   (let [len (count mnemonics)
+         _ (assert (<= 4 (quot len 3) 8)) ;; 12, ... 24 words
+         wd-list (get +word-list+ lang-key)
+         binary-seed (->> mnemonics
+                          (map #(if-let [idx (.indexOf wd-list %)]
+                                  idx
+                                  (throw (ex-info "Word is not in the dictionary!" {:word %}))))
+                          pack-11-bits-dynamic)
+         checksum-length-bits (quot (* len 11) 33)
+         ;; FIXME: valid words length are: 12, 16, 20, and 24
+         ;; Then checksum-length-bits are: 4, 5, 6, and 8
+         ;; therefore always 'num-remainer' and
+         ;; checksum-length  is always 1 and bits-to-ignore is: 4, 3, 2, 1
+         ;; UPDATE NEXT LINES WITH THIS.
+         num-remainder (rem checksum-length-bits 8)
+         [checksum-length bits-to-ignore] (if (zero? num-remainder)
+                                            [(quot checksum-length-bits 8) 0]
+                                            [(-> checksum-length-bits (quot 8) inc)
+                                             (- 8 num-remainder)])
+         [data checksum] [(subvec binary-seed 0 (- (count binary-seed) checksum-length))
+                          (subvec binary-seed (- (count binary-seed) checksum-length))]
+         computed-checksum (subvec (vec (hash/sha256 (byte-array data))) 0 checksum-length)]
+
+     (when (not= (first checksum)
+                 (-> computed-checksum
+                     first
+                     (bit-and 0xff)
+                     (bit-shift-right bits-to-ignore)
+                     (bit-shift-left
+                      bits-to-ignore)))
+       (throw (ex-info "Checksum verification failed" {:expect (first computed-checksum)
+                                                       :actual (first checksum)
+                                                       :bits-to-ignore bits-to-ignore
+                                                       :mnemonics mnemonics})))
+
+     data)))
 
 
 (defn indices->mnemonic [indices]
@@ -122,7 +159,7 @@
 
 (defn bytes->mnemonic [entropy]
   (let [len (count entropy)
-        _ (assert (zero? (mod len 4)))
+        _ (assert (<= 4 (quot len 4) 8))
         total-bits (* len 8)
         checksum-bits (quot total-bits 32)
         total-mnemonics (-> (+ total-bits checksum-bits)
