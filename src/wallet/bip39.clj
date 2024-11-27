@@ -105,12 +105,12 @@
                    to-byte
                    (conj result (bit-or (bit-shift-left carry offset) (bit-shift-right num to-byte)))))
 
-          :finally  (if (pos? carry)
+          :finally  (if (and (zero? carry) (zero? carry-bits))
+                      result
                       (->> carry-bits
                            (- 8)
                            (bit-shift-left carry)
-                           (conj result))
-                      result))))
+                           (conj result))))))
 
 (defn mnemonic->bytes
   ([mnemonics]
@@ -125,11 +125,6 @@
                                   (throw (ex-info "Word is not in the dictionary!" {:word %}))))
                           pack-11-bits-dynamic)
          checksum-length-bits (quot (* len 11) 33)
-         ;; FIXME: valid words length are: 12, 16, 20, and 24
-         ;; Then checksum-length-bits are: 4, 5, 6, and 8
-         ;; therefore always 'num-remainer' and
-         ;; checksum-length  is always 1 and bits-to-ignore is: 4, 3, 2, 1
-         ;; UPDATE NEXT LINES WITH THIS.
          num-remainder (rem checksum-length-bits 8)
          [checksum-length bits-to-ignore] (if (zero? num-remainder)
                                             [(quot checksum-length-bits 8) 0]
@@ -139,13 +134,12 @@
                           (subvec binary-seed (- (count binary-seed) checksum-length))]
          computed-checksum (subvec (vec (hash/sha256 (byte-array data))) 0 checksum-length)]
 
-     (when (not= (first checksum)
-                 (-> computed-checksum
-                     first
-                     (bit-and 0xff)
-                     (bit-shift-right bits-to-ignore)
-                     (bit-shift-left
-                      bits-to-ignore)))
+     (when (not= (first checksum) (-> computed-checksum
+                                      first
+                                      (bit-and 0xff)
+                                      (bit-shift-right bits-to-ignore)
+                                      (bit-shift-left
+                                       bits-to-ignore)))
        (throw (ex-info "Checksum verification failed" {:expect (first computed-checksum)
                                                        :actual (first checksum)
                                                        :bits-to-ignore bits-to-ignore
