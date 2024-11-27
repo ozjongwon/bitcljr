@@ -137,7 +137,7 @@
                   0xd :hanzi)]
        (case mode
          :numeric (-> (string->indices str)
-                      (b39/indices->mnemonics))
+                      (b39/indices->mnemonic))
          :byte (->  raw
                     realign-byte-array
-                    b39/bytes->mnemonics))))))
+                    b39/bytes->mnemonic))))))
