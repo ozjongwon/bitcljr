@@ -9,5 +9,5 @@
   ([lang-key]
    (-> (qr/scan-qr-code-continuously)
        (b39/decode-seed-qr lang-key)
-       (b39/mnemonic->seeds)
+       (b39/mnemonics->seed)
        (b32/seed->hd-key))))

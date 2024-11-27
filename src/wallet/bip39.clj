@@ -41,6 +41,28 @@
                           list-txt-files
                           load-wordlists))
 
+(defn indices->mnemonics
+  ([indices]
+   (indices->mnemonics indices *lang-key*))
+  ([indices lang-key]
+   (if-let [wd-list (get +word-list+ lang-key)]
+     (map #(if-let [found (get-in +word-list+ [lang-key %])]
+             found
+             (throw (ex-info "Out of index!" {:index %})))
+          indices)
+     (throw (ex-info "Unknown language" {:lang-key lang-key})))))
+
+(defn mnemonics->indices
+  ([mnemonics]
+   (mnemonics->indices mnemonics *lang-key*))
+  ([mnemonics lang-key]
+   (if-let [wdlist (get +word-list+ lang-key)]
+     (map #(if-let [found (.indexOf wdlist %)]
+             found
+             (throw (ex-info "Word is not in the dictionary!" {:word %})))
+          mnemonics)
+     (throw (ex-info "Unknown language" {:lang-key lang-key}))))  )
+
 (defn- remove-first-n-bits [n num num-bits]
   ;; get num-of-bits, shift left, dec, shift-right, bit-and
   (-> (bit-shift-left 1 num-bits)
@@ -118,12 +140,7 @@
   ([mnemonics lang-key]
    (let [len (count mnemonics)
          _ (assert (<= 4 (quot len 3) 8)) ;; 12, ... 24 words
-         wd-list (get +word-list+ lang-key)
-         binary-seed (->> mnemonics
-                          (map #(if-let [idx (.indexOf wd-list %)]
-                                  idx
-                                  (throw (ex-info "Word is not in the dictionary!" {:word %}))))
-                          pack-11-bits-dynamic)
+         binary-seed (-> mnemonics (mnemonics->indices) pack-11-bits-dynamic)
          checksum-length-bits (quot (* len 11) 33)
          num-remainder (rem checksum-length-bits 8)
          [checksum-length bits-to-ignore] (if (zero? num-remainder)
@@ -147,11 +164,7 @@
 
      data)))
 
-
-(defn indices->mnemonic [indices]
-  (map #(get-in +word-list+ [*lang-key* %]) indices))
-
-(defn bytes->mnemonic [entropy]
+(defn bytes->mnemonics [entropy]
   (let [len (count entropy)
         _ (assert (<= 4 (quot len 4) 8))
         total-bits (* len 8)
@@ -167,7 +180,7 @@
           entropy) ;; vector!
         (into checksum)
         (extract-11-bits-dynamic total-mnemonics)
-        indices->mnemonic)))
+        indices->mnemonics)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -179,39 +192,18 @@
     (-> (kdf/get-bytes pbkdf2+sha512 64)
         (codecs/bytes->hex))))
 
-(defn mnemonic->seed
-  ([mnemonic]
-   (mnemonic->seed mnemonic nil))
-  ([mnemonic passwd]
-   (mnemonic->seed  mnemonic passwd :english))
-  ([mnemonic passwd lang-key]
+(defn mnemonics->seed
+  ([mnemonics]
+   (mnemonics->seed mnemonics nil))
+  ([mnemonics passwd]
+   (mnemonics->seed  mnemonics passwd :english))
+  ([mnemonics passwd lang-key]
    ;; only supports 12, 24, ...
-   ;;   (assert (zero? (mod (count mnemonic) 12)))
-   (let [wd-list (get +word-list+ lang-key)
-         seed-bytes (->> (map #(.indexOf wd-list %) mnemonic)
-                         pack-11-bits-dynamic)]
-     (mnemonics->pbkdf2-sha512-kdf seed-bytes passwd))
-
-
-   ;; return hashlib.pbkdf2_hmac(
-   ;;                            "sha512",
-   ;;                            mnemonic.encode("utf-8"),
-   ;;                            ("mnemonic" + password).encode("utf-8"),
-   ;;                            PBKDF2_ROUNDS,
-   ;;                            64,
-   ;;                            )
-
-
-
-   ;; @classmethod
-   ;; def from_seed(cls, seed: bytes, version=NETWORKS["main"]["xprv"]):
-   ;; """Creates a root private key from 64-byte seed"""
-   ;; raw = hmac.new(b"Bitcoin seed", seed, digestmod="sha512").digest()
-   ;; private_key = ec.PrivateKey(raw[:32])
-   ;; chain_code = raw[32:]
-   ;; return cls(private_key, chain_code, version=version)
-
-   ))
+   ;;   (assert (zero? (mod (count mnemonics) 12)))
+   (->  mnemonics
+        mnemonics->indices
+        pack-11-bits-dynamic
+        (mnemonics->pbkdf2-sha512-kdf passwd))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -219,7 +211,7 @@
 (comment
   (for [[seed mnemonic hex-seed xprv] test-data
         :let [seed (-> (clojure.string/split mnemonic #" ")
-                       (mnemonic->seed "TREZOR")
+                       (mnemonics->seed "TREZOR")
                        (wallet.bip32/seed->hd-key)
                        (wallet.bip32/encode-extended-key))]]
     [hex-seed seed])
@@ -235,7 +227,7 @@
   ;; First, let's make the seed generation explicit
   (def test-mnemonic "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about")
 
-  (defn mnemonic->seed [mnemonic password]
+  (defn mnemonics->seed [mnemonic password]
     (let [salt (str "mnemonic" (or password ""))
           result (buddy.core.kdf/get-bytes
                   (buddy.core.kdf/engine
@@ -256,7 +248,7 @@
 
   (defn debug-master-key-generation []
     (let [ ;; 1. Generate seed
-          seed (mnemonic->seed test-mnemonic "")
+          seed (mnemonics->seed test-mnemonic "")
           _ (println "Seed (hex):" (codecs/bytes->hex seed))
 
           ;; 2. Generate HMAC-SHA512
