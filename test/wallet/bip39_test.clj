@@ -125,7 +125,9 @@
                                         (bytes->mnemonic)
                                         (vec))]
                 (is (= actual-mnemonic expected-mnemonic))
-                (is (= (bytes->hex-str (mnemonic->bytes actual-mnemonic))
+                (is (= (->> actual-mnemonic
+                            mnemonic->bytes
+                            bytes->hex-str)
                        seed))))
             test-data))))
 
