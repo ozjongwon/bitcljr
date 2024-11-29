@@ -93,7 +93,19 @@
                                (aset-byte padded-bytes 0 0x00)
                                (System/arraycopy key-bytes 0 padded-bytes 1 (min 32 (count key-bytes)))
                                padded-bytes)))]
-    ;;h ttps://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
+    ;; Check with
+    ;;https://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
+    ;; (println "***"
+    ;;          (->> chain-code (map #(format "%02x" (bit-and % 0xFF))) (apply str))
+    ;;          (->> raw-key-bytes (map #(format "%02x" (bit-and % 0xFF))) (apply str))
+    ;;          (->> `[~@(vec version) ; 4 bytes
+    ;;                 ~depth          ; 1 byte
+    ;;                 ~@(vec (int->n-byte-array parent-fingerprint 4)) ; 4 bytes
+    ;;                 ~@(vec (int->n-byte-array child-index 4)) ; 4 bytes
+    ;;                 ~@(vec chain-code)                        ; 32 bytes
+    ;;                 ~@(vec raw-key-bytes)]
+    ;;               (map #(format "%02x" (bit-and % 0xFF)))
+    ;;               (apply str)))
     (b58/encode-check (byte-array `[~@(vec version) ; 4 bytes
                                     ~depth          ; 1 byte
                                     ~@(vec (int->n-byte-array parent-fingerprint 4)) ; 4 bytes
