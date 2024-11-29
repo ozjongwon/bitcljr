@@ -59,7 +59,7 @@
 
      (->HDPrivateKey private-key chain-code version))))
 
-(defn int->n-byte-array [i n]
+(defn- int->n-byte-array [i n]
   (let [bytes (byte-array n)]
     (run! #(aset-byte bytes % (bit-and (bit-shift-right i (* 8 (- n %))) 0xff)) (range 4))
     bytes))
@@ -69,12 +69,12 @@
         parent-fingerprint 0
         child-index 0
         raw-key-bytes (let [key-bytes (-> (.getD private-key) (.toByteArray))]
-                        (if (= (count key-bytes) 32)
-                          key-bytes
-                          (let [padded-bytes (byte-array 33)] ; prepend 0x00 + 32 bytes
-                            (aset-byte padded-bytes 0 0x00)
-                            (System/arraycopy key-bytes 0 padded-bytes 1 (min 32 (count key-bytes)))
-                            padded-bytes)))]
+                        (case (count key-bytes)
+                          33 key-bytes
+                          32 (let [padded-bytes (byte-array 33)] ; prepend 0x00 + 32 bytes
+                               (aset-byte padded-bytes 0 0x00)
+                               (System/arraycopy key-bytes 0 padded-bytes 1 (min 32 (count key-bytes)))
+                               padded-bytes)))]
     ;;h ttps://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
     (b58/encode-check (byte-array `[~@(vec version) ; 4 bytes
                                     ~depth          ; 1 byte
