@@ -62,10 +62,11 @@
                        )]))
 
 (defn decode-check [s]
-  (let [b (decode s)
-        checksum (take-last 4 b)
-        msg (drop-last 4 b)]
-    (if (= checksum
-           (->> msg byte-array double-sha256 (take 4)))
-      (byte-array msg)
-      (throw (ex-info "Checksum failed" {:expect checksum})))))
+  (let [b (->> (decode s) (map int))
+        checksum (->> b (take-last 4))
+        msg-l (->> (drop-last 4 b))
+        actual-checksum (->> msg-l byte-array double-sha256 (take 4) (map #(bit-and % 0xff)))]
+    (if (= checksum actual-checksum)
+      (->> msg-l (map char) (apply str))
+      (throw (ex-info "Checksum failed" {:expect checksum
+                                         :actual actual-checksum})))))
