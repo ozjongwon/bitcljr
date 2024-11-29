@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [wallet.bip39 :refer :all]
             [wallet.base58 :as b58]
+            [wallet.bip32 :as b32]
             [clojure.string :as str]))
 
 ;;; From embit's test_bip39.py
@@ -123,12 +124,17 @@
                     actual-mnemonic (-> seed
                                         (hex-str->bytes)
                                         (bytes->mnemonic)
-                                        (vec))]
+                                        (vec))
+                    actual-xkey (-> actual-mnemonic
+                                    (mnemonic->seed "TREZOR")
+                                    b32/seed->hd-key
+                                    b32/private-key->xprv)]
                 (is (= actual-mnemonic expected-mnemonic))
                 (is (= (->> actual-mnemonic
                             mnemonic->bytes
                             bytes->hex-str)
-                       seed))))
+                       seed))
+                (is (= actual-xkey xprv))))
             test-data))))
 
 ;;(run-tests)
