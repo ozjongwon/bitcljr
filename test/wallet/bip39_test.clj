@@ -112,8 +112,7 @@
 
 (defn bytes->hex-str [bytes]
   (->> bytes
-       byte-array
-       (map #(format "%02x" %))
+       (map #(format "%02x" (bit-and % 0xFF)))
        (apply str)))
 
 (deftest bip39-test
