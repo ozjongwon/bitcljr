@@ -184,7 +184,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn mnemonic->pbkdf2-sha512-kdf [mnemonic pw]
+(defn- mnemonic->pbkdf2-sha512-kdf [mnemonic pw]
   (let [pbkdf2+sha512 (kdf/engine {:alg :pbkdf2+sha512
                                    :key mnemonic
                                    :salt (str "mnemonic" pw)

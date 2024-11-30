@@ -117,6 +117,7 @@
                     actual-hex-seed (-> actual-mnemonic
                                         (mnemonic->seed "TREZOR"))
                     actual-xkey (-> actual-hex-seed
+                                    codecs/hex->bytes
                                     b32/seed->hd-key
                                     b32/private-key->xprv)]
                 (is (= actual-mnemonic expected-mnemonic))
