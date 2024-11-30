@@ -114,8 +114,9 @@
                                         (codecs/hex->bytes)
                                         (bytes->mnemonic)
                                         (vec))
-                    actual-xkey (-> actual-mnemonic
-                                    (mnemonic->seed "TREZOR")
+                    actual-hex-seed (-> actual-mnemonic
+                                        (mnemonic->seed "TREZOR"))
+                    actual-xkey (-> actual-hex-seed
                                     b32/seed->hd-key
                                     b32/private-key->xprv)]
                 (is (= actual-mnemonic expected-mnemonic))
@@ -123,6 +124,7 @@
                             mnemonic->bytes
                             codecs/bytes->hex)
                        seed))
+                (is (= actual-hex-seed hex-seed))
                 (is (= actual-xkey xprv))))
             test-data))))
 

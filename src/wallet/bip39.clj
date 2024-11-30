@@ -186,7 +186,7 @@
 
 (defn mnemonic->pbkdf2-sha512-kdf [mnemonic pw]
   (let [pbkdf2+sha512 (kdf/engine {:alg :pbkdf2+sha512
-                                   :key (byte-array mnemonic)
+                                   :key mnemonic
                                    :salt (str "mnemonic" pw)
                                    :iterations 2048})]
     (-> (kdf/get-bytes pbkdf2+sha512 64)
@@ -198,9 +198,8 @@
   ([mnemonic passwd]
    (mnemonic->seed  mnemonic passwd :english))
   ([mnemonic passwd lang-key]
-   ;; only supports 12, 24, ...
-   ;;   (assert (zero? (mod (count mnemonic) 12)))
-   (->  mnemonic
-        mnemonic->indices
-        pack-11-bits-dynamic
-        (mnemonic->pbkdf2-sha512-kdf passwd))))
+   (assert (<= 4 (quot (count mnemonic) 3) 8))
+   (mnemonic->pbkdf2-sha512-kdf (->> mnemonic
+                                     (interpose " ")
+                                     (apply str))
+                                passwd)))
