@@ -109,18 +109,15 @@
   (testing "Predefined test cases to check basic functions"
     (binding [*lang-key* :english]
       (run! (fn [[seed exp-mnemonic hex-seed xprv]]
-              (let [expected-mnemonic (str/split exp-mnemonic #" ")
-                    actual-mnemonic (-> seed
+              (let [actual-mnemonic (-> seed
                                         (codecs/hex->bytes)
-                                        (bytes->mnemonic)
-                                        (vec))
-                    actual-hex-seed (-> actual-mnemonic
-                                        (mnemonic->seed "TREZOR"))
+                                        (bytes->mnemonic))
+                    actual-hex-seed (mnemonic->seed actual-mnemonic "TREZOR")
                     actual-xkey (-> actual-hex-seed
                                     codecs/hex->bytes
                                     b32/seed->hd-key
                                     b32/private-key->xprv)]
-                (is (= actual-mnemonic expected-mnemonic))
+                (is (= actual-mnemonic exp-mnemonic))
                 (is (= (->> actual-mnemonic
                             mnemonic->bytes
                             codecs/bytes->hex)

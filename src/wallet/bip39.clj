@@ -1,16 +1,9 @@
 (ns wallet.bip39
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [buddy.core.hash :as hash]
             [buddy.core.kdf :as kdf]
-            [buddy.core.codecs :as codecs]
-            [buddy.core.mac :as mac]
-            [wallet.base58 :as b58]
-            [wallet.bip32 :as b32]
-            [wallet.networks :as net])
-  (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
-           [org.bouncycastle.crypto.ec CustomNamedCurves]
-           [org.bouncycastle.asn1.sec SECNamedCurves]
-           [org.bouncycastle.math.ec ECPoint]))
+            [buddy.core.codecs :as codecs]))
 
 (def ^:dynamic *lang-key*)
 
@@ -46,10 +39,12 @@
    (indices->mnemonic indices *lang-key*))
   ([indices lang-key]
    (if-let [wd-list (get +word-list+ lang-key)]
-     (map #(if-let [found (get-in +word-list+ [lang-key %])]
-             found
-             (throw (ex-info "Out of index!" {:index %})))
-          indices)
+     (->> indices
+          (map #(if-let [found (get-in +word-list+ [lang-key %])]
+                  found
+                  (throw (ex-info "Out of index!" {:index %}))))
+          (interpose " ")
+          (apply str))
      (throw (ex-info "Unknown language" {:lang-key lang-key})))))
 
 (defn mnemonic->indices
@@ -138,9 +133,10 @@
   ([mnemonic]
    (mnemonic->bytes mnemonic *lang-key*))
   ([mnemonic lang-key]
-   (let [len (count mnemonic)
+   (let [words (str/split mnemonic #" ")
+         len (count words)
          _ (assert (<= 4 (quot len 3) 8)) ;; 12, ... 24 words
-         binary-seed (-> mnemonic (mnemonic->indices) pack-11-bits-dynamic)
+         binary-seed (-> words (mnemonic->indices) pack-11-bits-dynamic)
          checksum-length-bits (quot (* len 11) 33)
          num-remainder (rem checksum-length-bits 8)
          [checksum-length bits-to-ignore] (if (zero? num-remainder)
@@ -198,8 +194,8 @@
   ([mnemonic passwd]
    (mnemonic->seed  mnemonic passwd :english))
   ([mnemonic passwd lang-key]
-   (assert (<= 4 (quot (count mnemonic) 3) 8))
-   (mnemonic->pbkdf2-sha512-kdf (->> mnemonic
-                                     (interpose " ")
-                                     (apply str))
-                                passwd)))
+   (assert (<= 4 (-> mnemonic
+                     (str/split #" ")
+                     count
+                     (quot 3)) 8))
+   (mnemonic->pbkdf2-sha512-kdf mnemonic passwd)))
