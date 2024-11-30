@@ -75,24 +75,6 @@
                                (aset-byte padded-bytes 0 0x00)
                                (System/arraycopy key-bytes 0 padded-bytes 1 (min 32 (count key-bytes)))
                                padded-bytes)))]
-    ;;h ttps://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
-    (b58/encode-check (byte-array `[~@(vec version) ; 4 bytes
-                                    ~depth          ; 1 byte
-                                    ~@(vec (int->n-byte-array parent-fingerprint 4)) ; 4 bytes
-                                    ~@(vec (int->n-byte-array child-index 4)) ; 4 bytes
-                                    ~@(vec chain-code)                        ; 32 bytes
-                                    ~@(vec raw-key-bytes)]))))
-(defn private-key->xprv [{:keys [private-key chain-code version]}]
-  (let [depth 0
-        parent-fingerprint 0
-        child-index 0
-        raw-key-bytes (let [key-bytes (-> (.getD private-key) (.toByteArray))]
-                        (case (count key-bytes)
-                          33 key-bytes
-                          32 (let [padded-bytes (byte-array 33)] ; prepend 0x00 + 32 bytes
-                               (aset-byte padded-bytes 0 0x00)
-                               (System/arraycopy key-bytes 0 padded-bytes 1 (min 32 (count key-bytes)))
-                               padded-bytes)))]
     ;; Check with
     ;;https://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
     ;; (println "***"

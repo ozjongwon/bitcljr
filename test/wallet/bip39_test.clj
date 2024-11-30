@@ -111,7 +111,7 @@
       (run! (fn [[seed exp-mnemonic hex-seed xprv]]
               (let [expected-mnemonic (str/split exp-mnemonic #" ")
                     actual-mnemonic (-> seed
-                                        (hex-str->bytes)
+                                        (codecs/hex->bytes)
                                         (bytes->mnemonic)
                                         (vec))
                     actual-xkey (-> actual-mnemonic

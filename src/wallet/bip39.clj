@@ -162,7 +162,7 @@
                                                        :bits-to-ignore bits-to-ignore
                                                        :mnemonic mnemonic})))
 
-     data)))
+     (byte-array data))))
 
 (defn bytes->mnemonic [entropy]
   (let [len (count entropy)
@@ -186,7 +186,7 @@
 
 (defn mnemonic->pbkdf2-sha512-kdf [mnemonic pw]
   (let [pbkdf2+sha512 (kdf/engine {:alg :pbkdf2+sha512
-                                   :key (codecs/bytes->str mnemonic)
+                                   :key (byte-array mnemonic)
                                    :salt (str "mnemonic" pw)
                                    :iterations 2048})]
     (-> (kdf/get-bytes pbkdf2+sha512 64)
