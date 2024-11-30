@@ -3,7 +3,8 @@
             [wallet.bip39 :refer :all]
             [wallet.base58 :as b58]
             [wallet.bip32 :as b32]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [buddy.core.codecs :as codecs]))
 
 ;;; From embit's test_bip39.py
 ;;;
@@ -104,17 +105,6 @@
                      "01f5bced59dec48e362f2c45b5de68b9fd6c92c6634f44d6d40aab69056506f0e35524a518034ddc1192e1dacd32c1ed3eaa3c3b131c88ed8e7e54c49a5d0998"
                      "xprv9s21ZrQH143K39rnQJknpH1WEPFJrzmAqqasiDcVrNuk926oizzJDDQkdiTvNPr2FYDYzWgiMiC63YmfPAa2oPyNB23r2g7d1yiK6WpqaQS"]])
 
-(defn hex-str->bytes [hex-str]
-  (->> (partition 2 hex-str)
-       (map #(apply str "0x" %))
-       (map read-string)
-       (byte-array)))
-
-(defn bytes->hex-str [bytes]
-  (->> bytes
-       (map #(format "%02x" (bit-and % 0xFF)))
-       (apply str)))
-
 (deftest bip39-test
   (testing "Predefined test cases to check basic functions"
     (binding [*lang-key* :english]
@@ -131,7 +121,7 @@
                 (is (= actual-mnemonic expected-mnemonic))
                 (is (= (->> actual-mnemonic
                             mnemonic->bytes
-                            bytes->hex-str)
+                            codecs/bytes->hex)
                        seed))
                 (is (= actual-xkey xprv))))
             test-data))))
