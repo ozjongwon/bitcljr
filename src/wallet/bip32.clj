@@ -1,15 +1,10 @@
 (ns wallet.bip32
-  (:require [clojure.java.io :as io]
-            [buddy.core.hash :as hash]
-            [buddy.core.kdf :as kdf]
-            [buddy.core.codecs :as codecs]
+  (:require [clojure.string :as str]
             [buddy.core.mac :as mac]
             [wallet.base58 :as b58]
             [wallet.networks :as net])
   (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
-           [org.bouncycastle.crypto.ec CustomNamedCurves]
-           [org.bouncycastle.asn1.sec SECNamedCurves]
-           [org.bouncycastle.math.ec ECPoint]))
+           [org.bouncycastle.crypto.ec CustomNamedCurves]))
 
 ;;;
 ;;; HD (Hierarchical Deterministic) Key from a mnemonic phrase and an optional password
@@ -30,7 +25,7 @@
         private-key (ECPrivateKeyParameters. (BigInteger. 1 key-bytes) domain)
         pkey-big-int (.getD private-key)]
     (if  (< 0 pkey-big-int curve-order)
-      private-key
+      (.toByteArray pkey-big-int)
       (throw (ex-info "Key validation failed, new seed required" {:private-key pkey-big-int})))))
 
 (defn seed->hd-key
@@ -64,21 +59,24 @@
     (run! #(aset-byte bytes % (bit-and (bit-shift-right i (* 8 (- n %))) 0xff)) (range 4))
     bytes))
 
-
 (defn private-key->xprv [{:keys [private-key chain-code version]}]
   (let [depth 0
         parent-fingerprint 0
         child-index 0
-        raw-key-bytes (let [key-bytes (-> (.getD private-key) (.toByteArray))
-                            len (count key-bytes)]
+        raw-key-bytes (let [len (count private-key)]
                         (case len
-                          33 key-bytes
-                          (31 32) (let [padded-bytes (byte-array 33)
-                                        n-bytes (- 33 len)]
-                                    (dotimes [i n-bytes]
-                                      (aset-byte padded-bytes i 0x00))
-                                    (System/arraycopy key-bytes 0 padded-bytes n-bytes (min 32 (count key-bytes)))
-                                    padded-bytes)))]
+                          33 private-key
+
+                          (31 32)
+                          (let [padded-bytes (byte-array 33)
+                                n-bytes (- 33 len)]
+                            (dotimes [i n-bytes]
+                              (aset-byte padded-bytes i 0x00))
+                            (->> private-key
+                                 count
+                                 (min 32)
+                                 (System/arraycopy private-key 0 padded-bytes n-bytes))
+                            padded-bytes)))]
     ;; Check with
     ;;https://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
     ;; (println "***"
