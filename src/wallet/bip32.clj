@@ -64,17 +64,21 @@
     (run! #(aset-byte bytes % (bit-and (bit-shift-right i (* 8 (- n %))) 0xff)) (range 4))
     bytes))
 
+
 (defn private-key->xprv [{:keys [private-key chain-code version]}]
   (let [depth 0
         parent-fingerprint 0
         child-index 0
-        raw-key-bytes (let [key-bytes (-> (.getD private-key) (.toByteArray))]
-                        (case (count key-bytes)
+        raw-key-bytes (let [key-bytes (-> (.getD private-key) (.toByteArray))
+                            len (count key-bytes)]
+                        (case len
                           33 key-bytes
-                          32 (let [padded-bytes (byte-array 33)] ; prepend 0x00 + 32 bytes
-                               (aset-byte padded-bytes 0 0x00)
-                               (System/arraycopy key-bytes 0 padded-bytes 1 (min 32 (count key-bytes)))
-                               padded-bytes)))]
+                          (31 32) (let [padded-bytes (byte-array 33)
+                                        n-bytes (- 33 len)]
+                                    (dotimes [i n-bytes]
+                                      (aset-byte padded-bytes i 0x00))
+                                    (System/arraycopy key-bytes 0 padded-bytes n-bytes (min 32 (count key-bytes)))
+                                    padded-bytes)))]
     ;; Check with
     ;;https://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
     ;; (println "***"
