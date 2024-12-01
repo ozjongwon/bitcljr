@@ -117,27 +117,29 @@
                (conj result (bit-or (bit-shift-left nibble 4)
                                     (bit-shift-right (bit-and byte 0xf0) 4))))))))
 
+;;;
+;;; Call under (binding [b39/*lang-key* :korean ...
+;;;
 (defn decode-seed-qr
   ([scan-result]
    (decode-seed-qr scan-result :english))
   ([{:keys [raw str]} lang-key]
-   (binding [b39/*lang-key* lang-key]
-     (let [byte0 (first raw)
-           byte1 (second raw)
-           mode (case (bit-shift-right (bit-and byte0 0xff) 4)
-                  0x0 :terminator
-                  0x1 :numeric
-                  0x2 :alphanumeric
-                  0x3 :structured-append
-                  0x4 :byte
-                  0x5 :fnc1-first-position
-                  0x7 :eci
-                  0x8 :kanji
-                  0x9 :fnc1-second-position
-                  0xd :hanzi)]
-       (case mode
-         :numeric (-> (string->indices str)
-                      (b39/indices->mnemonic))
-         :byte (->  raw
-                    realign-byte-array
-                    b39/bytes->mnemonic))))))
+   (let [byte0 (first raw)
+         byte1 (second raw)
+         mode (case (bit-shift-right (bit-and byte0 0xff) 4)
+                0x0 :terminator
+                0x1 :numeric
+                0x2 :alphanumeric
+                0x3 :structured-append
+                0x4 :byte
+                0x5 :fnc1-first-position
+                0x7 :eci
+                0x8 :kanji
+                0x9 :fnc1-second-position
+                0xd :hanzi)]
+     (case mode
+       :numeric (-> (string->indices str)
+                    (b39/indices->mnemonic))
+       :byte (->  raw
+                  realign-byte-array
+                  b39/bytes->mnemonic)))))
