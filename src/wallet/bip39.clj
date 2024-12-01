@@ -17,6 +17,7 @@
                (io/file)
                (.getName)
                (clojure.string/replace #"\.txt$" "")
+               (clojure.string/replace #"_" "-")
                keyword)
 
            (with-open [reader (io/reader filename)]
