@@ -181,12 +181,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- mnemonic->pbkdf2-sha512-kdf [mnemonic pw]
-  (let [pbkdf2+sha512 (kdf/engine {:alg :pbkdf2+sha512
-                                   :key mnemonic
-                                   :salt (str "mnemonic" pw)
-                                   :iterations 2048})]
-    (-> (kdf/get-bytes pbkdf2+sha512 64)
-        (codecs/bytes->hex))))
+  (->  {:alg :pbkdf2+sha512
+        :key mnemonic
+        :salt (str "mnemonic" pw)
+        :iterations 2048}
+       kdf/engine
+       (kdf/get-bytes 64)
+       codecs/bytes->hex))
 
 (defn mnemonic->seed
   ([mnemonic]
