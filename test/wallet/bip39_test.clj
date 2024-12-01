@@ -981,23 +981,7 @@
      "17ec1a79121f3541e2d78ece35c8cfe7f5763b39d93fa90492c4beca26ee69d3aa7f4b1e6a2ac5e8225e08dded19357ee44b852dca425792842ec8eae09ae43f"
      "xprv9s21ZrQH143K4RoVseL4UENdN7Ag1WmcK7Q6Pk329krQW4RifHJ5sNizkG1PiyRXAouyL7KDFJSQAD1VarGTPftD1yZZAni3QczW8V5gNVG"]]})
 
-;; (for [lang-key [:chinese-simplified :chinese-traditional :czech :english
-;;                 :french :italian :japanese :korean :portuguese :spanish]]
-;;   [lang-key
-;;    (for [[seed _ _ _] en-test-data]
-;;      (binding [*lang-key* :lang-key]
-;;        (let [actual-mnemonic (-> seed
-;;                                  (codecs/hex->bytes)
-;;                                  (bytes->mnemonic))
-;;              actual-hex-seed (mnemonic->seed actual-mnemonic "TREZOR")
-;;              actual-xkey (-> actual-hex-seed
-;;                              codecs/hex->bytes
-;;                              b32/seed->hd-key
-;;                              b32/private-key->xprv)]
-;;          [seed actual-mnemonic actual-hex-seed actual-xkey])))])
-
-
-
+;; https://iancoleman.io/bip39/#korean
 (deftest bip39-test
   (testing "Predefined test cases to check basic functions"
     (doseq [lang-key [:chinese-simplified :chinese-traditional :czech :english
