@@ -20,13 +20,19 @@
         domain (ECDomainParameters. (.getCurve curve) ;; The actual curve equation parameters
                                     (.getG curve) ;; generator point (base point), the public key
                                     curve-order ;; the order of the curve ,for the private key
-                                    ;;(.getH curve)
                                     )
         private-key (ECPrivateKeyParameters. (BigInteger. 1 key-bytes) domain)
         pkey-big-int (.getD private-key)]
     (if  (< 0 pkey-big-int curve-order)
       (.toByteArray pkey-big-int)
-      (throw (ex-info "Key validation failed, new seed required" {:private-key pkey-big-int})))))
+      (throw (ex-info "Key validation failed, a new seed required" {:private-key pkey-big-int})))))
+
+(defn private-key->public-key [private-key-bytes]
+  (-> "secp256k1"
+      CustomNamedCurves/getByName
+      .getG
+      (.multiply (BigInteger. 1 private-key-bytes))
+      (.getEncoded false)))
 
 (defn seed->hd-key
   "Creates a root private key from 64-byte seed
