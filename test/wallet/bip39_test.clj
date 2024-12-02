@@ -996,7 +996,7 @@
                         actual-xkey (-> actual-hex-seed
                                         codecs/hex->bytes
                                         b32/seed->hd-key
-                                        b32/private-key->xprv)]
+                                        b32/hd-key->master-private-key)]
                     (is (= actual-mnemonic exp-mnemonic))
                     (is (= (->> actual-mnemonic
                                 mnemonic->bytes
