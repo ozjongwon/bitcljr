@@ -1007,7 +1007,3 @@
                 test-data))))))
 
 ;;(run-tests)
-;; act_xkey = HDKey.from_seed(
-;;                            mnemonic_to_seed(act_mnemonic, password="TREZOR")
-;;                            )
-;; self.assertEqual(act_xkey.to_base58(), xprv)
