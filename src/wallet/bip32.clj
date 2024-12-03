@@ -42,13 +42,17 @@
                        "The key is out of the EC range")]
     (throw (ex-info "Key validation failed, a new seed required" {:reason msg}))))
 
-(defn private-key->public-key [private-key-bytes]
-  ;; Return compressed pub key
-  (-> "secp256k1"
-      CustomNamedCurves/getByName
-      .getG
-      (.multiply (BigInteger. 1 private-key-bytes))
-      (.getEncoded true)))
+(defn private-key->public-key [private-key]
+  (assert (instance? HDPrivateKey private-key))
+  ;; Return compressed pub ke
+  (let [key (-> "secp256k1"
+                CustomNamedCurves/getByName
+                .getG
+                (.multiply (BigInteger. 1 (:key private-key)))
+                (.getEncoded true))]
+    (make-hd-public-key (assoc private-key
+                               :key key
+                               :version (get-in net/+networks+ ["main" "xpub"])))))
 
 (defn seed->hd-key
   "Creates a root private key from 64-byte seed
@@ -111,6 +115,9 @@
              make-hd-public-key
              get-fingerprint))))
 
+(defn public-key? [k]
+  (instance? HDPublicKey k))
+
 (defn make-hd-private-key [key chain-code version fingerprint depth child-index]
   (->HDPrivateKey key chain-code version fingerprint depth child-index))
 
@@ -134,6 +141,9 @@
   (get-fingerprint [this]
     (or fingerprint
         (->> key hash160 (take 4) byte-array codecs/bytes->hex))))
+
+(defn private-key? [k]
+  (instance? HDPrivateKey k))
 
 (defn make-hd-public-key
   ([m]
