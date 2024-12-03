@@ -134,6 +134,7 @@
   (get-fingerprint [this]
     (or fingerprint
         (->> key hash160 (take 4) byte-array codecs/bytes->hex))))
+
 (defn make-hd-public-key
   ([m]
    (map->HDPublicKey m))
@@ -145,12 +146,12 @@
     (get-in net/+networks+ ["main" "xprv"])
     (get-in net/+networks+ ["main" "xpub"])))
 
-(defn make-child-key [key chain-code index {:keys [depth]}]
+(defn make-child-key [key chain-code version depth index]
   (if (= (count key) 32)
     (make-hd-private-key key chain-code (get-in net/+networks+ ["main" "xprv"])
-                         (inc depth) index)
+                         nil (inc depth) index)
     (make-hd-public-key key chain-code (get-in net/+networks+ ["main" "xpub"])
-                        (inc depth) index)))
+                        nil (inc depth) index)))
 
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
   (when (> index 0xFFFFFFFF) ;; (hardened) index <= 2^32
