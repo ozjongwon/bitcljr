@@ -16,16 +16,18 @@
     (- val 256)
     val))
 
-(defn- int->n-byte-array [i n]
-  (let [bytes (byte-array n)]
-    (loop [idx (dec n) v i]
-      (if (< idx 0)
-        bytes
-        (do (->> 0xff
-                 (bit-and v)
-                 unsigned->signed
-                 (aset-byte bytes idx))
-            (recur (dec idx) (bit-shift-right v 8)))))))
+(defn- ->n-byte-array [i n]
+  (if (bytes? i)
+    i
+    (let [bytes (byte-array n)]
+      (loop [idx (dec n) v i]
+        (if (< idx 0)
+          bytes
+          (do (->> 0xff
+                   (bit-and v)
+                   unsigned->signed
+                   (aset-byte bytes idx))
+              (recur (dec idx) (bit-shift-right v 8))))))))
 
 ;;;
 ;;; Key making and validating
@@ -42,17 +44,24 @@
                        "The key is out of the EC range")]
     (throw (ex-info "Key validation failed, a new seed required" {:reason msg}))))
 
+(declare private-key?)
+
+(defn raw-private-key->public-key [raw-private-key]
+  (-> "secp256k1"
+      CustomNamedCurves/getByName
+      .getG
+      (.multiply (BigInteger. 1 raw-private-key))
+      (.getEncoded true)))
+
+(declare make-hd-public-key)
+
 (defn private-key->public-key [private-key]
-  (assert (instance? HDPrivateKey private-key))
-  ;; Return compressed pub ke
-  (let [key (-> "secp256k1"
-                CustomNamedCurves/getByName
-                .getG
-                (.multiply (BigInteger. 1 (:key private-key)))
-                (.getEncoded true))]
-    (make-hd-public-key (assoc private-key
-                               :key key
-                               :version (get-in net/+networks+ ["main" "xpub"])))))
+  (assert (private-key? private-key))
+  (make-hd-public-key (assoc private-key
+                             :key (raw-private-key->public-key (:key private-key))
+                             :version (get-in net/+networks+ ["main" "xpub"]))))
+
+(declare make-hd-private-key)
 
 (defn seed->hd-key
   "Creates a root private key from 64-byte seed
@@ -100,8 +109,8 @@
   (make-child-data-bytes [parent index]
     ;; only hardened or not matters, not public/private
     (-> (if (hardened-index? index)
-          `[0x0 ~@key ~@(int->n-byte-array index 4)]
-          `[~@(private-key->public-key key) ~@(int->n-byte-array index 4)])
+          `[0x0 ~@key ~@(->n-byte-array index 4)]
+          `[~@(raw-private-key->public-key key) ~@(->n-byte-array index 4)])
         (byte-array)))
 
   (make-hd-key [parent secret]
@@ -111,15 +120,13 @@
 
   (get-fingerprint [this]
     (or fingerprint
-        (->> {:key (private-key->public-key key)}
+        (->> {:key (raw-private-key->public-key key)}
              make-hd-public-key
              get-fingerprint))))
 
-(defn public-key? [k]
-  (instance? HDPublicKey k))
-
 (defn make-hd-private-key [key chain-code version fingerprint depth child-index]
-  (->HDPrivateKey key chain-code version fingerprint depth child-index))
+  (let [k (->HDPrivateKey key chain-code version fingerprint depth child-index)]
+    (assoc k :fingerprint (get-fingerprint k))))
 
 (defrecord HDPublicKey [key chain-code version fingerprint depth child-index]
   HDKey
@@ -127,7 +134,7 @@
     (when (hardened-index? index)
       (throw (ex-info "Can't derive a hardened key from a public key"
                       {:parent this :index index})))
-    `[~@(private-key->public-key key) ~@(int->n-byte-array index 4)])
+    `[~@key ~@(->n-byte-array index 4)])
 
   (make-hd-key [parent raw-bytes]
     (-> "secp256k1"
@@ -140,16 +147,20 @@
 
   (get-fingerprint [this]
     (or fingerprint
-        (->> key hash160 (take 4) byte-array codecs/bytes->hex))))
+        (->> key hash160 (take 4) byte-array))))
 
-(defn private-key? [k]
-  (instance? HDPrivateKey k))
+(defn public-key? [k]
+  (instance? HDPublicKey k))
 
 (defn make-hd-public-key
   ([m]
    (map->HDPublicKey m))
-  ([key chain-code version depth child-index]
-   (->HDPublicKey key chain-code version fingerprint depth child-index)))
+  ([key chain-code version fingerprint depth child-index]
+   (let [k (->HDPublicKey key chain-code version fingerprint depth child-index)]
+     (assoc k :fingerprint (get-fingerprint k)))))
+
+(defn private-key? [k]
+  (instance? HDPrivateKey k))
 
 (defn key->version [key]
   (if (= (count key) 32)
@@ -157,11 +168,12 @@
     (get-in net/+networks+ ["main" "xpub"])))
 
 (defn make-child-key [key chain-code version depth index]
-  (if (= (count key) 32)
-    (make-hd-private-key key chain-code (get-in net/+networks+ ["main" "xprv"])
-                         nil (inc depth) index)
-    (make-hd-public-key key chain-code (get-in net/+networks+ ["main" "xpub"])
-                        nil (inc depth) index)))
+  (let [non-leading-zero-key (->> key (drop-while #(zero? %)) byte-array)]
+    (if (<= (count non-leading-zero-key) 32)
+      (make-hd-private-key non-leading-zero-key chain-code (get-in net/+networks+ ["main" "xprv"])
+                           nil (inc depth) index)
+      (make-hd-public-key non-leading-zero-key chain-code (get-in net/+networks+ ["main" "xpub"])
+                          nil (inc depth) index))))
 
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
   (when (> index 0xFFFFFFFF) ;; (hardened) index <= 2^32
@@ -189,7 +201,7 @@
       (recur more (derive-child parent idx))
       parent)))
 
-(defn hd-key->master-private-key [{:keys [key chain-code version depth version fingerprint child-index]}]
+(defn encode-hd-key [{:keys [key chain-code version depth version fingerprint child-index]}]
   (let [raw-key-bytes (let [len (count key)]
                         (case len
                           33 key
@@ -208,7 +220,7 @@
     ;;https://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
     (b58/encode-check (byte-array `[~@(vec version) ; 4 bytes
                                     ~depth          ; 1 byte
-                                    ~@(vec (int->n-byte-array fingerprint 4)) ; 4 bytes
-                                    ~@(vec (int->n-byte-array child-index 4)) ; 4 bytes
+                                    ~@(vec (->n-byte-array fingerprint 4)) ; 4 bytes
+                                    ~@(vec (->n-byte-array child-index 4)) ; 4 bytes
                                     ~@(vec chain-code)                        ; 32 bytes
                                     ~@(vec raw-key-bytes)]))))
