@@ -114,9 +114,10 @@
         (byte-array)))
 
   (make-hd-key [parent secret]
-    (-> (.mod (.add (BigInteger. 1 key) (BigInteger. 1 secret))
-              (-> "secp256k1" CustomNamedCurves/getByName .getN))
-        (.toByteArray)))
+    (->> secret
+         (BigInteger. 1)
+         (.add (BigInteger. 1 key))
+         .toByteArray))
 
   (get-fingerprint [this]
     (or fingerprint
@@ -176,7 +177,7 @@
                           nil (inc depth) index))))
 
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
-  (when (> index 0xFFFFFFFF) ;; (hardened) index <= 2^32
+  (when (> index 0xFFFFFFFF)
     (throw (ex-info "Index must be: index <= 2^32" {:index index})))
 
   (let [raw (mac/hash (make-child-data-bytes parent index) {:key chain-code :alg :hmac+sha512})
