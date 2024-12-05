@@ -136,12 +136,10 @@
     (byte-array `[~@key ~@(->n-byte-array index 4)]))
 
   (make-hd-key [parent raw-bytes] ;; parent-key child-raw-bytes
-    (->> "secp256k1"
-         CustomNamedCurves/getByName
-         .getG
-         (.multiply (BigInteger. 1 raw-bytes))
-         (.add (BigInteger. 1 key))
-         .toByteArray)))
+    (let [curve (CustomNamedCurves/getByName "secp256k1")
+          parent-point (.decodePoint (.getCurve curve) key)]
+      (-> (.add parent-point (.multiply (.getG curve) (BigInteger. 1 raw-bytes)))
+          (.getEncoded true)))))
 
 (defn public-key? [k]
   (instance? HDPublicKey k))

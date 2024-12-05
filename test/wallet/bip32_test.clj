@@ -111,10 +111,13 @@
           (is (public-key? derived-xpub))
           (is (= (encode-hd-key derived-xprv) prv))
           (is (= (encode-hd-key derived-xpub) pub))
-          ;; (is (= (path->child derived-xpub [10 20])
-          ;;        (->  derived-xprv
-          ;;             (path->child [10 20])
-          ;;             (private-key->public-key))))
+          (is (= (->> [10 20]
+                      (path->child derived-xpub)
+                      encode-hd-key)
+                 (->> [10 20]
+                      (path->child derived-xprv)
+                      private-key->public-key
+                      encode-hd-key)))
           ))))
   ;; (testing "Invalid keys"
   ;;   (doseq [xk invalid-test-vectors]
