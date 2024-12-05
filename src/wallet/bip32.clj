@@ -161,11 +161,16 @@
     (get-in net/+networks+ ["main" "xpub"])))
 
 (defn make-child-key [key chain-code version fingerprint depth index]
-  (let [non-leading-zero-key (->> key (drop-while #(zero? %)) byte-array)]
-    (if (<= (count non-leading-zero-key) 32)
-      (make-hd-private-key non-leading-zero-key chain-code (get-in net/+networks+ ["main" "xprv"])
+  (let [keylen (count key)
+        maybe-new-key (if (and (> keylen 32) (= (first key) 0x00))
+                        (let [zeros (take (- keylen 32) key)]
+                          (assert (every? zero? zeros))
+                          (->> key (drop (- keylen 32)) byte-array))
+                        key)]
+    (if (<= (count maybe-new-key) 32)
+      (make-hd-private-key maybe-new-key chain-code (get-in net/+networks+ ["main" "xprv"])
                            fingerprint depth index)
-      (make-hd-public-key non-leading-zero-key chain-code (get-in net/+networks+ ["main" "xpub"])
+      (make-hd-public-key maybe-new-key chain-code (get-in net/+networks+ ["main" "xpub"])
                           fingerprint depth index))))
 
 (defn ec-key->fingerprint [ec-key]
@@ -177,7 +182,6 @@
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
   (when (> index 0xFFFFFFFF)
     (throw (ex-info "Index must be: index <= 2^32" {:index index})))
-
   (let [raw (mac/hash (make-child-data-bytes parent index) {:key chain-code :alg :hmac+sha512})
         ;; Split into key and chain code
         raw-bytes (byte-array (take 32 raw))
