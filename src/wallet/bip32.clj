@@ -29,6 +29,13 @@
                    (aset-byte bytes idx))
               (recur (dec idx) (bit-shift-right v 8))))))))
 
+(defn bytes->int [barr]
+  (reduce
+   (fn [acc byte]
+     (bit-or (bit-shift-left acc 8) (bit-and byte 0xFF)))  ; Shift left and combine bytes
+   0
+   barr))
+
 ;;;
 ;;; Key making and validating
 ;;;
@@ -239,8 +246,8 @@
               (if n-bytes
                 (recur (drop n-bytes bytes) more-n-bytes (conj result (take n-bytes bytes)))
                 (conj result bytes)))
-            depth-int (BigInteger. 1 (byte-array depth))
-            index-int (BigInteger. 1 (byte-array index))
+            depth-int (bytes->int depth)
+            index-int (bytes->int index)
             fingerprint-int (BigInteger. 1 (byte-array fingerprint))
             non-zero-raw-key (drop-while zero? raw-key)
             raw-key-byte (byte-array raw-key)]
@@ -280,5 +287,5 @@
         ((case vprefix
            "xprv" make-hd-private-key
            "xpub" make-hd-public-key)
-         raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) (long depth-int) (long index-int)))
+         raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) depth-int index-int))
       (throw (ex-info "Unknown version" {:version (subs hd-key-str 0 4)})))))
