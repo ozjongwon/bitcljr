@@ -228,3 +228,57 @@
                                     ~@(vec (->n-byte-array child-index 4)) ; 4 bytes
                                     ~@(vec chain-code) ; 32 bytes
                                     ~@(vec raw-key-bytes)]))))
+
+(defn decode-hd-key [hd-key-str]
+  (let [vprefix (subs hd-key-str 0 4)]
+    (if-let [ver (->> vprefix
+                      (conj ["main"])
+                      (get-in net/+networks+))]
+      (let [[version depth fingerprint index chain-code raw-key]
+            (loop [bytes (b58/decode-check hd-key-str) [n-bytes & more-n-bytes] [4 1 4 4 32] result []]
+              (if n-bytes
+                (recur (drop n-bytes bytes) more-n-bytes (conj result (take n-bytes bytes)))
+                (conj result bytes)))
+            depth-int (BigInteger. 1 (byte-array depth))
+            index-int (BigInteger. 1 (byte-array index))
+            fingerprint-int (BigInteger. 1 (byte-array fingerprint))
+            non-zero-raw-key (drop-while zero? raw-key)
+            raw-key-byte (byte-array raw-key)]
+        (cond  (and (= "xpub" vprefix) (not= 33 (count raw-key-byte)))
+               (throw (ex-info "Wrong byte size for xpub" {:size (count raw-key-byte)}))
+
+               (and (= "xpub" vprefix) (not (contains? #{0x02 0x03} (first non-zero-raw-key))))
+               (throw (ex-info "Wrong prefix for xpub" {:prefix (first non-zero-raw-key)}))
+
+               (and (= "xpub" vprefix)
+                    (try (do (-> (CustomNamedCurves/getByName "secp256k1")
+                                 .getCurve
+                                 (.decodePoint raw-key-byte))
+                             false)
+                         (catch Exception e
+                           true)))
+               (throw (ex-info "Out of EC for xpub" {:raw-key raw-key}))
+
+               (and (= "xprv" vprefix) (not (<= 31 (count non-zero-raw-key) 32)))
+               (throw (ex-info "Wrong byte size or prefix for xprv" {:non-zero-raw-key non-zero-raw-key}))
+
+               (and (= "xprv" vprefix)
+                    (not (< 0 (BigInteger. 1 raw-key-byte) (-> "secp256k1"
+                                                               CustomNamedCurves/getByName
+                                                               .getN))))
+               (throw (ex-info "The privkey is out of the EC range" {:key-int (BigInteger. 1 raw-key-byte)}))
+
+
+               (not (<= 0 depth-int 255))
+               (throw (ex-info "Depth out of range" {:depth (first depth-int)}))
+
+               (and (zero? depth-int) (not= fingerprint-int 0))
+               (throw (ex-info "Invalid master key depth fingerprint" {:fingerprint fingerprint-int}))
+
+               (and (zero? depth-int) (not (zero? index-int)))
+               (throw (ex-info "Invalid master key depth with child index" {:child-index index-int})))
+        ((case vprefix
+           "xprv" make-hd-private-key
+           "xpub" make-hd-public-key)
+         raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) (byte-array depth) (byte-array index)))
+      (throw (ex-info "Unknown version" {:version (subs hd-key-str 0 4)})))))
