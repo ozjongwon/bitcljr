@@ -156,9 +156,7 @@
   (testing "Identity"
     (doseq [xk ["xprv9uPDJpEQgRQfDcW7BkF7eTya6RPxXeJCqCJGHuCJ4GiRVLzkTXBAJMu2qaMWPrS7AANYqdq6vcBcBUdJCVVFceUvJFjaPdGZ2y9WACViL4L"
                 "xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y"]]
-      (is (= (-> xk
-                 decode-hd-key
-                 encode-hd-key)
+      (is (= (-> xk decode-hd-key encode-hd-key)
              xk)))))
 
 
