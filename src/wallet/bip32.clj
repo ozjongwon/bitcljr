@@ -280,5 +280,5 @@
         ((case vprefix
            "xprv" make-hd-private-key
            "xpub" make-hd-public-key)
-         raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) (byte-array depth) (byte-array index)))
+         raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) (long depth-int) (long index-int)))
       (throw (ex-info "Unknown version" {:version (subs hd-key-str 0 4)})))))
