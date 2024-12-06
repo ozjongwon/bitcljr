@@ -3,7 +3,8 @@
 ;;;
 
 (ns wallet.base58
-  (:require [buddy.core.hash :as hash]))
+  (:require [buddy.core.hash :as hash]
+            [buddy.core.codecs :as codecs]))
 
 (defn double-sha256 [bytes]
   (-> bytes
@@ -58,8 +59,7 @@
        (pipeline 58 256 inverted-alphabet char first-char? "\000")))
 
 (defn encode-check [v]
-  (encode `[~@v ~@(->> v (double-sha256) (take 4) ;(map #(bit-and % 0xff))
-                       )]))
+  (encode `[~@v ~@(->> v (double-sha256) (take 4))]))
 
 (defn decode-check [s]
   (let [b (->> (decode s) (map int))
@@ -67,6 +67,6 @@
         msg-l (->> (drop-last 4 b))
         actual-checksum (->> msg-l byte-array double-sha256 (take 4) (map #(bit-and % 0xff)))]
     (if (= checksum actual-checksum)
-      (->> msg-l (map char) (apply str))
+      (byte-array msg-l)
       (throw (ex-info "Checksum failed" {:expect checksum
                                          :actual actual-checksum})))))
