@@ -53,28 +53,38 @@
        b58/encode-check)))
 
 
-(comment
+
+(defn derive-xprv
+  ([root]
+   (derive-xprv root 0))
+  ([root index]
+   (let [entropy (derive-entropy root [32 index])
+         chain-code (subvec entropy 0 32)
+         pkey (subvec entropy 32)]
+     (-> pkey
+         byte-array
+         (b32/make-hd-private-key (byte-array chain-code)
+                                  (get-in net/+networks+ ["main" "xprv"]) 0 0 0)
+         b32/encode-hd-key))))
 
 
-  (defn derive-xprv
-    ([root]
-     (derive-xprv root 0))
-    ([root index]
-     (b32/encode-hd-key (b32/seed->hd-key (byte-array (derive-entropy root [32 index]))))))
 
-  ;;(derive-xprv :root)
 
-  (defn derive-hex
-    ([root]
-     (derive-hex root 32))
-    ([root num-bytes]
-     (derive-hex root num-bytes 0))
-    ([root num-bytes index]
-     (assert (<= 16 num-bytes 64))
-     (->> [128169 num-bytes index]
-          (derive-entropy root))))
-  ;;(derive-hex :root)
-  )
+;;(derive-xprv :root)
+
+(defn derive-hex
+  ([root]
+   (derive-hex root 32))
+  ([root num-bytes]
+   (derive-hex root num-bytes 0))
+  ([root num-bytes index]
+   (assert (<= 16 num-bytes 64))
+   (-> root
+       (derive-entropy  [128169 num-bytes index])
+       (subvec 0 num-bytes)
+       byte-array
+       codecs/bytes->hex)))
+
 (comment
   (defn derive-pwd-base64
     ([root]

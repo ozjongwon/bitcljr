@@ -49,6 +49,6 @@
              expected))))
 
   (testing "Test hex"
-    (doseq [{:keys [index expected]} +xprv-hex+]
-      (is (= (derive-hex +root-key+ index)
+    (doseq [{:keys [num-bytes index expected]} +xprv-hex+]
+      (is (= (derive-hex +root-key+ num-bytes index)
              expected)))))
