@@ -1,6 +1,8 @@
 (ns wallet.bip85
   (:require [wallet.bip32 :as b32]
             [wallet.bip39 :as b39]
+            [wallet.base58 :as b58]
+            [wallet.networks :as net]
             [buddy.core.crypto :as crypto]
             [buddy.core.mac :as mac]
             [buddy.core.codecs :as codecs]))
@@ -37,25 +39,28 @@
        byte-array
        b39/bytes->mnemonic)))
 
-;;(derive-mnemonic :root)
-(comment
-  (defn derive-wif
-    ([root]
-     (derive-wif root 0))
-    ([root index]
-     (-> root
-         (derive-entropy [2 index])
-         (subvec 0 32)
-         byte-array)))
+(defn derive-wif
+  ([root]
+   (derive-wif root 0))
+  ([root index]
+   (-> `[~@(get-in net/+networks+ ["main" "wif"])
+         ~@(-> root
+               (derive-entropy [2 index])
+               (subvec 0 32)
+               (conj 0x01) ;; compressed
+               )]
+       byte-array
+       b58/encode-check)))
 
-  ;;(derive-wif :root)
+
+(comment
+
 
   (defn derive-xprv
     ([root]
      (derive-xprv root 0))
     ([root index]
-     (->> [32 index]
-          (derive-entropy root))))
+     (b32/encode-hd-key (b32/seed->hd-key (byte-array (derive-entropy root [32 index]))))))
 
   ;;(derive-xprv :root)
 
