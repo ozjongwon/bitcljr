@@ -33,45 +33,43 @@
    (assert (< index b32/+hardened-index+))
    (-> root-key
        (derive-entropy [39 (.indexOf +lang-vector+ lang-key) num-words index])
-       (subvec
-        0
-        (quot (* num-words 4) 3))
+       (subvec 0 (quot (* num-words 4) 3))
        byte-array
        b39/bytes->mnemonic)))
 
 ;;(derive-mnemonic :root)
+(comment
+  (defn derive-wif
+    ([root]
+     (derive-wif root 0))
+    ([root index]
+     (-> root
+         (derive-entropy [2 index])
+         (subvec 0 32)
+         byte-array)))
 
-(defn derive-wif
-  ([root]
-   (derive-wif root 0))
-  ([root index]
-   (->> [2 index]
-        (derive-entropy root)
-        ;;(make-private-key)
-        )))
+  ;;(derive-wif :root)
 
-;;(derive-wif :root)
+  (defn derive-xprv
+    ([root]
+     (derive-xprv root 0))
+    ([root index]
+     (->> [32 index]
+          (derive-entropy root))))
 
-(defn derive-xprv
-  ([root]
-   (derive-xprv root 0))
-  ([root index]
-   (->> [32 index]
-        (derive-entropy root))))
+  ;;(derive-xprv :root)
 
-;;(derive-xprv :root)
-
-(defn derive-hex
-  ([root]
-   (derive-hex root 32))
-  ([root num-bytes]
-   (derive-hex root num-bytes 0))
-  ([root num-bytes index]
-   (assert (<= 16 num-bytes 64))
-   (->> [128169 num-bytes index]
-        (derive-entropy root))))
-;;(derive-hex :root)
-
+  (defn derive-hex
+    ([root]
+     (derive-hex root 32))
+    ([root num-bytes]
+     (derive-hex root num-bytes 0))
+    ([root num-bytes index]
+     (assert (<= 16 num-bytes 64))
+     (->> [128169 num-bytes index]
+          (derive-entropy root))))
+  ;;(derive-hex :root)
+  )
 (comment
   (defn derive-pwd-base64
     ([root]

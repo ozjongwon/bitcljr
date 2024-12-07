@@ -8,7 +8,7 @@
 
 ;;;
 ;;; FIXME: test cases are only validated for :english
-;;;
+;;; https://iancoleman.io/bip39/#portuguese
 (defonce test-data
   {:portuguese
    [["00000000000000000000000000000000"

@@ -167,7 +167,7 @@
         total-bits (* len 8)
         checksum-bits (quot total-bits 32)
         total-mnemonic (-> (+ total-bits checksum-bits)
-                            (quot +word-bit-lengh+))
+                           (quot +word-bit-lengh+))
         checksum (-> (if (bytes? entropy)
                        entropy
                        (byte-array entropy))
