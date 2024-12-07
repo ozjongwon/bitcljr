@@ -115,7 +115,9 @@
   (make-child-data-bytes [parent index]
     ;; only hardened or not matters, not public/private
     (-> (if (hardened-index? index)
-          `[0x0 ~@key ~@(->n-byte-array index 4)]
+          `[~@(when-not (= (first key) 0x0)
+                `(0x0))
+            ~@key ~@(->n-byte-array index 4)]
           `[~@(raw-private-key->public-key key) ~@(->n-byte-array index 4)])
         (byte-array)))
 
