@@ -4,13 +4,17 @@
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
             ;;[clj-okhttp.core :as http]
+            [clojure.core.async :as async]
             )
   (:import [java.net InetSocketAddress Proxy Proxy$Type Socket]
            [javax.net.ssl SSLContext SSLSocketFactory SSLSocket TrustManager X509TrustManager
             HandshakeCompletedListener SSLSocket]
            [java.security.cert X509Certificate]
            [java.io BufferedReader InputStreamReader OutputStreamWriter]
-           [java.security SecureRandom]))
+           [java.security SecureRandom]
+           [java.nio ByteBuffer]
+           [java.nio.charset StandardCharsets]
+           [java.nio.channels Selector SelectionKey SelectableChannel]))
 
 (defonce electrum-onions
   {"wsw6tua3xl24gsmi264zaep6seppjyrkyucpsmuxnjzyt3f3j6swshad.onion"
@@ -48,20 +52,16 @@
 (def public-server-trust-managers
   (into-array TrustManager [(reify X509TrustManager
                               (getAcceptedIssuers [this]
-                                (println "***1")
                                 (into-array X509Certificate [])) ;; Return an empty array of accepted issuers
-                              (checkClientTrusted [this certs auth-type]
-                                (println "***2")) ;; No implementation needed for client certs
+                              (checkClientTrusted [this certs auth-type]) ;; No implementation needed for client certs
                               (checkServerTrusted [this certs auth-type]
-                                (println "***3")
                                 (when (empty? certs)
                                   (throw (ex-info "No server certificate provided" {})))
                                 (.checkValidity (first certs))))]))
 
 (def handshake-completed-listener
   (reify HandshakeCompletedListener
-    (handshakeCompleted [this event]
-      (println "***4"))))
+    (handshakeCompleted [this event])))
 
 (defprotocol Transport
   (connect [this ssl?])
@@ -93,6 +93,114 @@
    (map->TorTcpTransport {:server (InetSocketAddress. server-addr server-port)
                           :proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. proxy-addr proxy-port))
                           :timeouts 5000})))
+
+(defonce socket-read-selector (Selector/open))
+
+(defn register-channel [channel]
+  (.register channel socket-read-selector SelectionKey/OP_READ))
+
+(defonce +byte-buffer-size+ 1024)
+(defonce +byte-buffer+ (ByteBuffer/allocate +byte-buffer-size+))
+
+(defn read-from-channel [channel]
+  (loop [offset 0 result ""]
+    (let [bytes-read (.read channel +byte-buffer+ offset +byte-buffer-size+)]
+      (if (pos? bytes-read)
+        (recur (+ offset bytes-read) (str result (String. (.array +byte-buffer+) 0 bytes-read StandardCharsets/UTF_8)))
+        result))))
+
+
+(defonce +electrum-requests+ (atom {}))
+
+(defonce +rpc-req-ch+ (async/chan))
+
+(defrecord ReqEntry [method params timestamp])
+
+(defn rpc-request [method params]
+  (let [id (str (gensym "id"))]
+    (async/go
+      (async/>! (-> {:method method :params params :id id :jsonrpc "2.0"}
+                    json/write-str
+                    (str "\r\n"))
+                +rpc-req-ch+))
+    (swap! +electrum-requests+ assoc id (->ReqEntry method params 9999))))
+
+(defonce tor-open-tcp-transport (atom []))
+
+(defonce +rpc-res-ch+ (async/chan))
+
+(defn rpc-response-loop [{:keys [socket] :as tor-tcp-transport}]
+  (while true
+    (.select socket-read-selector)
+    (doseq [k (.selectedKeys socket-read-selector)]
+      (when (.isReadable k)
+        (try (let [channel (.channel k)]
+               (async/go
+                 (->> channel
+                      read-from-channel
+                      (async/>! +rpc-res-ch+))))
+             (catch Exception _
+               (.cancel k)))))
+    ;; Remove closed channels
+    (doseq [k (.keys socket-read-selector)]
+      (when-not (-> k .channel .isOpen)
+        (.cancel k)))))
+
+
+;; (go-loop []
+;;   (try (let [in (BufferedReader. (InputStreamReader. (.getInputStream socket) StandardCharsets/UTF_8))
+;;              res (.readLine in)]
+;;          (println "Connected to" host "through Tor on port" port)
+
+;;          ;; Send data to the server
+;;          (.write out-stream msg)
+;;          (.flush out-stream)
+
+;;          ;; Receive response from the server
+;;          (println "Server response: " )
+
+;;          ;; Close the socket
+;;          (.close socket))
+;;        (catch Exception _
+;;          (println "Delete" host ":" port))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn query-electrum-server
+  ([method params]
+   (let [id (str (gensym "id"))]
+     (-> {:method method :params params :id id :jsonrpc "2.0"}
+         json/write-str
+         (str "\r\n")
+         (query-electrum-server (pick-electrum-server) id))))
+  ([msg electr id]
+   (http/post client (str "https://" electr ":50001")
+              {:as :json
+               :body msg
+               :headers {"content-type" "application/json"}})   ))
+
+
+
+(defn rpc-request [msg]
+  (let [[host port] [(pick-electrum-server) 50001]
+        tor-proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. "127.0.0.1" 9050)) ; Tor SOCKS proxy
+        socket (Socket. tor-proxy) ; Connect through Tor
+        ]
+    (try (let [in-stream (do (.connect socket (InetSocketAddress. host port))
+                             (BufferedReader. (InputStreamReader. (.getInputStream socket))))
+               out-stream (OutputStreamWriter. (.getOutputStream socket))]
+           (println "Connected to" host "through Tor on port" port)
+
+           ;; Send data to the server
+           (.write out-stream msg)
+           (.flush out-stream)
+
+           ;; Receive response from the server
+           (println "Server response: " (.readLine in-stream))
+
+           ;; Close the socket
+           (.close socket))
+         (catch Exception _
+           (println "Delete" host ":" port)))))
 
 (def onion1 (make-tor-tcp-transport "wsw6tua3xl24gsmi264zaep6seppjyrkyucpsmuxnjzyt3f3j6swshad.onion" 5002
                                     "127.0.0.1" 9050))
