@@ -5,7 +5,7 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.12.0"]
                  [org.clojure/core.async "1.6.681"]
-
+                 [org.flatland/ordered "1.15.12"]
                  [com.github.sarxos/webcam-capture "0.3.12"]
                  [com.google.zxing/core "3.5.3"]
                  [com.google.zxing/javase "3.5.2"]
