@@ -24,7 +24,7 @@
 (defn make-electrum-server [name s]
   (->ElectrumServer name s))
 
-(def +electrum-servers+
+(defonce +electrum-servers+
   (atom (->> {
               "104.248.139.211" {
                                  "pruning" "-",
@@ -512,7 +512,7 @@
 (defonce +timeouts+ {:slow-read-timeout-secs [] ;; FIXME: implement and use
                      :base-read-timeout-secs []})
 
-(def public-server-trust-managers
+(defonce public-server-trust-managers
   (into-array TrustManager [(reify X509TrustManager
                               (getAcceptedIssuers [this]
                                 (into-array X509Certificate [])) ;; Return an empty array of accepted issuers
@@ -522,7 +522,7 @@
                                   (throw (ex-info "No server certificate provided" {})))
                                 (.checkValidity (first certs))))]))
 
-(def handshake-completed-listener
+(defonce handshake-completed-listener
   (reify HandshakeCompletedListener
     (handshakeCompleted [this event])))
 
@@ -553,7 +553,7 @@
 
       (assoc this :socket ssl-socket))))
 
-(def +active-electrum-sockets+ (atom (ordered-map)))
+(defonce +active-electrum-sockets+ (atom (ordered-map)))
 
 (defn make-tor-tcp-transport
   ([]
@@ -592,6 +592,6 @@
       (put-available-socket! sock)
       result)))
 
-;;(rpc-request "server.version" [])
+;; (rpc-request "server.version" [])
 ;; {:server VPS.hsmiths.com/45.154.252.104:50002, :proxy SOCKS @ /127.0.0.1:9050, :timeouts 5000, :socket SSLSocket[hostname=VPS.hsmiths.com, port=50002, Session(1734329644665|TLS_AES_256_GCM_SHA384)]}
-;;echo -e {"method":"sserver.version","params":[],"id":"id19819","jsonrpc":"2.0"} | proxychains nc kareoke.qoppa.org 50001
+;; echo -e {"method":"sserver.version","params":[],"id":"id19819","jsonrpc":"2.0"} | proxychains nc kareoke.qoppa.org 50001
