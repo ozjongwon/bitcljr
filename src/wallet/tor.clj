@@ -491,8 +491,11 @@
                            }
               }
              (mapv (fn [[name {s "s" t "t"}]]
-                     (when t
-                       [name (->> t Integer/parseInt (make-electrum-server name))])))
+                     (when s
+                       [name (->> s Integer/parseInt (make-electrum-server name))])
+                     ;; (when t
+                     ;;   [name (->> t Integer/parseInt (make-electrum-server name))])
+                     ))
              (into (ordered-map)))))
 
 (defn grab-electrum-server! []
@@ -564,7 +567,7 @@
               ;; FIXME: don't need?
               :timeouts 5000}
              map->TorTcpTransport
-             (connect false))
+             (connect true))
         (catch Exception _))))
 
 (defn get-available-socket! []
@@ -576,7 +579,7 @@
       entry)))
 
 (defn put-available-socket! [entry]
-  (swap! +active-electrum-sockets+ assoc (:name entry) entry))
+  (swap! +active-electrum-sockets+ assoc (.getHostName (:server entry)) entry))
 
 (defn rpc-request [method params]
   (let [sock (get-available-socket!)]
