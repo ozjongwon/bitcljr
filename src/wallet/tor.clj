@@ -3,7 +3,7 @@
 (ns wallet.tor
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
-            ;;[clj-okhttp.core :as http]
+            [clojure.string :as str]
             [clojure.core.async :as async]
             [flatland.ordered.map :refer [ordered-map]])
   (:import [java.net InetSocketAddress Proxy Proxy$Type Socket]
@@ -581,17 +581,43 @@
 (defn put-available-socket! [entry]
   (swap! +active-electrum-sockets+ assoc (.getHostName (:server entry)) entry))
 
+(defonce +sub-ch+ (async/chan))
+(defonce +sub-sockets+ (atom #{}))
+(defonce +subscribe-loop+
+  (async/go-loop []
+    (doseq [sock @+sub-sockets+]
+      (let [socket (:socket sock)]
+        (if (.isClosed socket)
+          (swap! +sub-sockets+ disj sock)
+          (try
+            (->> socket .getInputStream InputStreamReader. BufferedReader.
+                 .readLine json/read-str (async/>! +sub-ch+))
+            (catch Exception _)))))
+    (async/<! (async/timeout 1000/4))
+    (recur)))
+
+(defn electrum-subscribe [sock method params id]
+  (swap! +sub-sockets+ conj sock))
+
 (defn rpc-request [method params]
-  (let [sock (get-available-socket!)]
+  (let [sock (get-available-socket!)
+        id (gensym "id")]
     (doto (-> sock :socket .getOutputStream OutputStreamWriter. BufferedWriter. PrintWriter.)
-      (.println (-> {:method method :params params :id (str (gensym "id")) :jsonrpc "2.0"}
+      (.println (-> {:method method :params params :id id :jsonrpc "2.0"}
                     json/write-str))
       (.flush))
     (let [in-stream (-> sock :socket .getInputStream InputStreamReader. BufferedReader.)
           result (-> in-stream .readLine json/read-str)]
       (put-available-socket! sock)
+      (when (str/includes? method ".subscribe")
+        (electrum-subscribe sock method params id))
       result)))
 
 ;; (rpc-request "server.version" [])
 ;; {:server VPS.hsmiths.com/45.154.252.104:50002, :proxy SOCKS @ /127.0.0.1:9050, :timeouts 5000, :socket SSLSocket[hostname=VPS.hsmiths.com, port=50002, Session(1734329644665|TLS_AES_256_GCM_SHA384)]}
 ;; echo -e {"method":"sserver.version","params":[],"id":"id19819","jsonrpc":"2.0"} | proxychains nc kareoke.qoppa.org 50001
+
+(defonce +electrum-server-queries+
+  {:server.version []
+   :server.banner []
+   :blockchain.headers.subscribe []})
