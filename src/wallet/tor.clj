@@ -5,7 +5,7 @@
             [clojure.java.io :as io]
             ;;[clj-okhttp.core :as http]
             [clojure.core.async :as async]
-            )
+            [flatland.ordered.map :refer [ordered-map]])
   (:import [java.net InetSocketAddress Proxy Proxy$Type Socket]
            [javax.net.ssl SSLContext SSLSocketFactory SSLSocket TrustManager X509TrustManager
             HandshakeCompletedListener SSLSocket]
@@ -14,39 +14,499 @@
            [java.security SecureRandom]
            [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]
-           [java.nio.channels Selector SelectionKey SelectableChannel]))
+           [java.nio.channels Selector SelectionKey SelectableChannel SocketChannel]))
 
-(defonce electrum-onions
-  {"wsw6tua3xl24gsmi264zaep6seppjyrkyucpsmuxnjzyt3f3j6swshad.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.2"},
-   "22mgr2fndslabzvx4sj7ialugn2jv3cfqjb3dnj67a6vnrkp7g4l37ad.onion"
-   {"pruning" "-", "t" "50001", "version" "1.4.2"},
-   "egyh5mutxwcvwhlvjubf6wytwoq5xxvfb2522ocx77puc6ihmffrh6id.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.2"},
-   "udfpzbte2hommnvag5f3qlouqkhvp3xybhlus2yvfeqdwlhjroe4bbyd.onion"
-   {"pruning" "-", "s" "60002", "t" "60001", "version" "1.4.5"},
-   "ty6cgwaf2pbc244gijtmpfvte3wwfp32wgz57eltjkgtsel2q7jufjyd.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.2"},
-   "rzspa374ob3hlyjptkdgz6a62wim2mpanuw6m3shlwn2cxg2smy3p7yd.onion"
-   {"pruning" "-", "s" "50004", "t" "50003", "version" "1.4.2"},
-   "kittycp2gatrqhlwpmbczk5rblw62enrpo2rzwtkfrrr27hq435d4vid.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.2"},
-   "venmrle3xuwkgkd42wg7f735l6cghst3sdfa3w3ryib2rochfhld6lid.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.2"},
-   "v7gtzf7nua6hdmb2wtqaqioqmesdb4xrlly4zwr7bvayxv2bpg665pqd.onion"
-   {"pruning" "-", "t" "50001", "version" "1.4.2"},
-   "nuzzg3pku3xbctgamzq3pf7ztakkiidnmmier64arqwh3ajdddovatad.onion"
-   {"pruning" "-", "s" "50002", "version" "1.4.2"},
-   "bejqtnc64qttdempkczylydg7l3ordwugbdar7yqbndck53ukx7wnwad.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.5"},
-   "v7o2hkemnt677k3jxcbosmjjxw3p5khjyu7jwv7orfy6rwtkizbshwqd.onion"
-   {"pruning" "-", "t" "57001", "version" "1.4.5"},
-   "qly7g5n5t3f3h23xvbp44vs6vpmayurno4basuu5rcvrupli7y2jmgid.onion"
-   {"pruning" "-", "s" "50002", "t" "50001", "version" "1.4.2"},
-   "explorerzydxu5ecjrkwceayqybizmpjjznk5izmitf2modhcusuqlid.onion"
-   {"pruning" "-", "t" "110", "version" "1.4"}})
+;;;
+;;; Electrum Server, rotating
+;;;
+(defrecord ElectrumServer [name s])
 
-(defonce +timeouts+ {:slow-read-timeout-secs []
+(defn make-electrum-server [name s]
+  (->ElectrumServer name s))
+
+(def +electrum-servers+
+  (atom (->> {
+              "104.248.139.211" {
+                                 "pruning" "-",
+                                 "s" "50002",
+                                 "t" "50001",
+                                 "version" "1.4.2"
+                                 },
+              "128.0.190.26" {
+                              "pruning" "-",
+                              "s" "50002",
+                              "version" "1.4.2"
+                              },
+              "142.93.6.38" {
+                             "pruning" "-",
+                             "s" "50002",
+                             "t" "50001",
+                             "version" "1.4.2"
+                             },
+              "157.245.172.236" {
+                                 "pruning" "-",
+                                 "s" "50002",
+                                 "t" "50001",
+                                 "version" "1.4.2"
+                                 },
+              "159.65.53.177" {
+                               "pruning" "-",
+                               "t" "50001",
+                               "version" "1.4.2"
+                               },
+              "167.172.42.31" {
+                               "pruning" "-",
+                               "s" "50002",
+                               "t" "50001",
+                               "version" "1.4.2"
+                               },
+              "188.230.155.0" {
+                               "pruning" "-",
+                               "s" "50002",
+                               "t" "50001",
+                               "version" "1.4.2"
+                               },
+              "22mgr2fndslabzvx4sj7ialugn2jv3cfqjb3dnj67a6vnrkp7g4l37ad.onion" {
+                                                                                "pruning" "-",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "2AZZARITA.hopto.org" {
+                                     "pruning" "-",
+                                     "s" "50002",
+                                     "t" "50001",
+                                     "version" "1.4.2"
+                                     },
+              "2electrumx.hopto.me" {
+                                     "pruning" "-",
+                                     "s" "56022",
+                                     "t" "56021",
+                                     "version" "1.4.2"
+                                     },
+              "2ex.digitaleveryware.com" {
+                                          "pruning" "-",
+                                          "s" "50002",
+                                          "version" "1.4.2"
+                                          },
+              "37.205.9.165" {
+                              "pruning" "-",
+                              "s" "50002",
+                              "version" "1.4.2"
+                              },
+              "68.183.188.105" {
+                                "pruning" "-",
+                                "s" "50002",
+                                "t" "50001",
+                                "version" "1.4.2"
+                                },
+              "73.92.198.54" {
+                              "pruning" "-",
+                              "s" "50002",
+                              "version" "1.4.2"
+                              },
+              "89.248.168.53" {
+                               "pruning" "-",
+                               "s" "50002",
+                               "t" "50001",
+                               "version" "1.4.2"
+                               },
+              "E-X.not.fyi" {
+                             "pruning" "-",
+                             "s" "50002",
+                             "t" "50001",
+                             "version" "1.4"
+                             },
+              "VPS.hsmiths.com" {
+                                 "pruning" "-",
+                                 "s" "50002",
+                                 "t" "50001",
+                                 "version" "1.4"
+                                 },
+              "alviss.coinjoined.com" {
+                                       "pruning" "-",
+                                       "s" "50002",
+                                       "t" "50001",
+                                       "version" "1.4.2"
+                                       },
+              "assuredly.not.fyi" {
+                                   "pruning" "-",
+                                   "s" "50002",
+                                   "version" "1.4.2"
+                                   },
+              "bejqtnc64qttdempkczylydg7l3ordwugbdar7yqbndck53ukx7wnwad.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.5"
+                                                                                },
+              "bitcoin.aranguren.org" {
+                                       "pruning" "-",
+                                       "s" "50002",
+                                       "t" "50001",
+                                       "version" "1.4.2"
+                                       },
+              "bitcoin.lu.ke" {
+                               "pruning" "-",
+                               "s" "50002",
+                               "t" "50001",
+                               "version" "1.4.2"
+                               },
+              "bitcoins.sk" {
+                             "pruning" "-",
+                             "s" "56002",
+                             "t" "56001",
+                             "version" "1.4.2"
+                             },
+              "blackie.c3-soft.com" {
+                                     "pruning" "-",
+                                     "s" "57002",
+                                     "t" "57001",
+                                     "version" "1.4.5"
+                                     },
+              "blkhub.net" {
+                            "pruning" "-",
+                            "s" "50002",
+                            "version" "1.4.2"
+                            },
+              "blockstream.info" {
+                                  "pruning" "-",
+                                  "s" "700",
+                                  "t" "110",
+                                  "version" "1.4"
+                                  },
+              "btc.electroncash.dk" {
+                                     "pruning" "-",
+                                     "s" "60002",
+                                     "t" "60001",
+                                     "version" "1.4.5"
+                                     },
+              "btc.litepay.ch" {
+                                "pruning" "-",
+                                "s" "50002",
+                                "version" "1.4.2"
+                                },
+              "btc.ocf.sh" {
+                            "pruning" "-",
+                            "s" "50002",
+                            "version" "1.4.2"
+                            },
+              "btce.iiiiiii.biz" {
+                                  "pruning" "-",
+                                  "s" "50002",
+                                  "t" "50001",
+                                  "version" "1.4.2"
+                                  },
+              "de.poiuty.com" {
+                               "pruning" "-",
+                               "s" "50002",
+                               "t" "50004",
+                               "version" "1.4.5"
+                               },
+              "e.keff.org" {
+                            "pruning" "-",
+                            "s" "50002",
+                            "t" "50001",
+                            "version" "1.4"
+                            },
+              "e2.keff.org" {
+                             "pruning" "-",
+                             "s" "50002",
+                             "t" "50001",
+                             "version" "1.4"
+                             },
+              "eai.coincited.net" {
+                                   "pruning" "-",
+                                   "s" "50002",
+                                   "t" "50001",
+                                   "version" "1.4.2"
+                                   },
+              "ecdsa.net" {
+                           "pruning" "-",
+                           "s" "110",
+                           "t" "50001",
+                           "version" "1.4"
+                           },
+              "egyh5mutxwcvwhlvjubf6wytwoq5xxvfb2522ocx77puc6ihmffrh6id.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "electrum.bitaroo.net" {
+                                      "pruning" "-",
+                                      "s" "50002",
+                                      "t" "50001",
+                                      "version" "1.4.2"
+                                      },
+              "electrum.blockstream.info" {
+                                           "pruning" "-",
+                                           "s" "50002",
+                                           "t" "50001",
+                                           "version" "1.4"
+                                           },
+              "electrum.dcn.io" {
+                                 "pruning" "-",
+                                 "s" "50002",
+                                 "t" "50001",
+                                 "version" "1.4.2"
+                                 },
+              "electrum.emzy.de" {
+                                  "pruning" "-",
+                                  "s" "50002",
+                                  "version" "1.4.2"
+                                  },
+              "electrum.hodlister.co" {
+                                       "pruning" "-",
+                                       "s" "50002",
+                                       "version" "1.4"
+                                       },
+              "electrum.hsmiths.com" {
+                                      "pruning" "-",
+                                      "s" "50002",
+                                      "t" "50001",
+                                      "version" "1.4"
+                                      },
+              "electrum.jochen-hoenicke.de" {
+                                             "pruning" "-",
+                                             "s" "50006",
+                                             "t" "50099",
+                                             "version" "1.4.5"
+                                             },
+              "electrum.pabu.io" {
+                                  "pruning" "-",
+                                  "s" "50002",
+                                  "version" "1.4.2"
+                                  },
+              "electrum.qtornado.com" {
+                                       "pruning" "-",
+                                       "s" "50002",
+                                       "t" "50001",
+                                       "version" "1.4"
+                                       },
+              "electrum3.hodlister.co" {
+                                        "pruning" "-",
+                                        "s" "50002",
+                                        "version" "1.4"
+                                        },
+              "electrum5.hodlister.co" {
+                                        "pruning" "-",
+                                        "s" "50002",
+                                        "version" "1.4"
+                                        },
+              "electrumx.alexridevski.net" {
+                                            "pruning" "-",
+                                            "s" "50002",
+                                            "t" "50001",
+                                            "version" "1.4.2"
+                                            },
+              "electrumx.erbium.eu" {
+                                     "pruning" "-",
+                                     "s" "50002",
+                                     "t" "50001",
+                                     "version" "1.4"
+                                     },
+              "electrumx.schulzemic.net" {
+                                          "pruning" "-",
+                                          "s" "50002",
+                                          "t" "50001",
+                                          "version" "1.4.2"
+                                          },
+              "elx.bitske.com" {
+                                "pruning" "-",
+                                "s" "50002",
+                                "t" "50001",
+                                "version" "1.4.2"
+                                },
+              "ex.btcmp.com" {
+                              "pruning" "-",
+                              "s" "50002",
+                              "version" "1.4.2"
+                              },
+              "ex03.axalgo.com" {
+                                 "pruning" "-",
+                                 "s" "50002",
+                                 "version" "1.4.2"
+                                 },
+              "explorerzydxu5ecjrkwceayqybizmpjjznk5izmitf2modhcusuqlid.onion" {
+                                                                                "pruning" "-",
+                                                                                "t" "110",
+                                                                                "version" "1.4"
+                                                                                },
+              "exs.dyshek.org" {
+                                "pruning" "-",
+                                "s" "50002",
+                                "t" "50001",
+                                "version" "1.4.2"
+                                },
+              "fortress.qtornado.com" {
+                                       "pruning" "-",
+                                       "s" "443",
+                                       "version" "1.5"
+                                       },
+              "fulcrum.grey.pw" {
+                                 "pruning" "-",
+                                 "s" "51002",
+                                 "t" "51001",
+                                 "version" "1.4.5"
+                                 },
+              "gall.pro" {
+                          "pruning" "-",
+                          "s" "50002",
+                          "version" "1.4.2"
+                          },
+              "guichet.centure.cc" {
+                                    "pruning" "-",
+                                    "s" "50002",
+                                    "t" "50001",
+                                    "version" "1.4.2"
+                                    },
+              "hodlers.beer" {
+                              "pruning" "-",
+                              "s" "50002",
+                              "version" "1.4.2"
+                              },
+              "horsey.cryptocowboys.net" {
+                                          "pruning" "-",
+                                          "s" "50002",
+                                          "t" "50001",
+                                          "version" "1.4.2"
+                                          },
+              "kareoke.qoppa.org" {
+                                   "pruning" "-",
+                                   "s" "50002",
+                                   "t" "50001",
+                                   "version" "1.4.2"
+                                   },
+              "kittycp2gatrqhlwpmbczk5rblw62enrpo2rzwtkfrrr27hq435d4vid.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "lavahost.org" {
+                              "pruning" "-",
+                              "s" "50002",
+                              "version" "1.4.2"
+                              },
+              "node.degga.net" {
+                                "pruning" "-",
+                                "s" "50002",
+                                "version" "1.4.2"
+                                },
+              "node1.btccuracao.com" {
+                                      "pruning" "-",
+                                      "s" "50002",
+                                      "t" "50001",
+                                      "version" "1.4.2"
+                                      },
+              "nuzzg3pku3xbctgamzq3pf7ztakkiidnmmier64arqwh3ajdddovatad.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "qly7g5n5t3f3h23xvbp44vs6vpmayurno4basuu5rcvrupli7y2jmgid.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "rzspa374ob3hlyjptkdgz6a62wim2mpanuw6m3shlwn2cxg2smy3p7yd.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50004",
+                                                                                "t" "50003",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "skbxmit.coinjoined.com" {
+                                        "pruning" "-",
+                                        "s" "50002",
+                                        "t" "50001",
+                                        "version" "1.4.2"
+                                        },
+              "smmalis37.ddns.net" {
+                                    "pruning" "-",
+                                    "s" "50002",
+                                    "version" "1.4.2"
+                                    },
+              "stavver.dyshek.org" {
+                                    "pruning" "-",
+                                    "s" "50002",
+                                    "t" "50001",
+                                    "version" "1.4.2"
+                                    },
+              "tardis.bauerj.eu" {
+                                  "pruning" "-",
+                                  "s" "50002",
+                                  "t" "50001",
+                                  "version" "1.4"
+                                  },
+              "ty6cgwaf2pbc244gijtmpfvte3wwfp32wgz57eltjkgtsel2q7jufjyd.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "udfpzbte2hommnvag5f3qlouqkhvp3xybhlus2yvfeqdwlhjroe4bbyd.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "60002",
+                                                                                "t" "60001",
+                                                                                "version" "1.4.5"
+                                                                                },
+              "v7gtzf7nua6hdmb2wtqaqioqmesdb4xrlly4zwr7bvayxv2bpg665pqd.onion" {
+                                                                                "pruning" "-",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "v7o2hkemnt677k3jxcbosmjjxw3p5khjyu7jwv7orfy6rwtkizbshwqd.onion" {
+                                                                                "pruning" "-",
+                                                                                "t" "57001",
+                                                                                "version" "1.4.5"
+                                                                                },
+              "venmrle3xuwkgkd42wg7f735l6cghst3sdfa3w3ryib2rochfhld6lid.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "vmd71287.contaboserver.net" {
+                                            "pruning" "-",
+                                            "s" "50002",
+                                            "version" "1.4.2"
+                                            },
+              "vmd84592.contaboserver.net" {
+                                            "pruning" "-",
+                                            "s" "50002",
+                                            "version" "1.4.2"
+                                            },
+              "wsw6tua3xl24gsmi264zaep6seppjyrkyucpsmuxnjzyt3f3j6swshad.onion" {
+                                                                                "pruning" "-",
+                                                                                "s" "50002",
+                                                                                "t" "50001",
+                                                                                "version" "1.4.2"
+                                                                                },
+              "xtrum.com" {
+                           "pruning" "-",
+                           "s" "50002",
+                           "t" "50001",
+                           "version" "1.4.2"
+                           }
+              }
+             (mapv (fn [[name {s "s"}]]
+                     (when s
+                       [name (->> s Integer/parseInt (make-electrum-server name))])))
+             (into (ordered-map)))))
+
+(defn grab-electrum-server! []
+  (let [[name entry] (first @+electrum-servers+)]
+    (swap! +electrum-servers+ dissoc name)
+    entry))
+
+;; (defn put-electrum-server! [entry]
+;;   (swap! +electrum-servers+ assoc (:name entry) entry))
+
+;;;
+;;; Transport - Tor + Socket + SSL
+;;;
+(defonce +timeouts+ {:slow-read-timeout-secs [] ;; FIXME: implement and use
                      :base-read-timeout-secs []})
 
 (def public-server-trust-managers
@@ -70,11 +530,15 @@
 (defrecord TorTcpTransport [^InetSocketAddress server ^Proxy proxy timeouts ^Socket socket]
   Transport
   (connect [this ssl?]
-    (let [soc (Socket. proxy)]
-      (.connect soc server)
-      (.setSoTimeout soc timeouts)
-      (cond-> (assoc this :socket soc)
-        ssl? (socket->ssl-socket))))
+    (try
+      (let [soc (Socket. proxy)]
+        (.connect soc server)
+        (.setSoTimeout soc timeouts)
+        (cond-> (assoc this :socket soc)
+          ssl? (socket->ssl-socket)))
+      (catch Exception _
+        ;;(remove-electrum-server (.getHostName server))
+        )))
   (socket->ssl-socket [{:keys [^Socket socket ^InetSocketAddress server] :as this}]
     (let [ssl-socket (-> (doto (SSLContext/getInstance "TLS")
                            (.init nil public-server-trust-managers (SecureRandom.)))
@@ -86,66 +550,52 @@
 
       (assoc this :socket ssl-socket))))
 
+(def +active-electrum-sockets+ (atom (ordered-map)))
+
 (defn make-tor-tcp-transport
+  ([]
+   (let [{:keys [name s] :as entry} (grab-electrum-server!)]
+     (make-tor-tcp-transport name s)))
   ([server-addr server-port]
    (make-tor-tcp-transport server-addr server-port "127.0.0.1" 9050))
   ([server-addr server-port proxy-addr proxy-port]
-   (map->TorTcpTransport {:server (InetSocketAddress. server-addr server-port)
-                          :proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. proxy-addr proxy-port))
-                          :timeouts 5000})))
+   (try (->  {:server (InetSocketAddress. server-addr server-port)
+              :proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. proxy-addr proxy-port))
+              ;; FIXME: don't need?
+              :timeouts 5000}
+             map->TorTcpTransport
+             (connect true))
+        (catch Exception _))))
 
-(defonce socket-read-selector (Selector/open))
+(defn get-available-socket! []
+  (if (empty? @+active-electrum-sockets+)
+    (or (make-tor-tcp-transport)
+        (recur))
+    (let [[name entry] (first @+active-electrum-sockets+)]
+      (swap! +active-electrum-sockets+ dissoc name)
+      entry)))
 
-(defn register-channel [channel]
-  (.register channel socket-read-selector SelectionKey/OP_READ))
-
-(defonce +byte-buffer-size+ 1024)
-(defonce +byte-buffer+ (ByteBuffer/allocate +byte-buffer-size+))
-
-(defn read-from-channel [channel]
-  (loop [offset 0 result ""]
-    (let [bytes-read (.read channel +byte-buffer+ offset +byte-buffer-size+)]
-      (if (pos? bytes-read)
-        (recur (+ offset bytes-read) (str result (String. (.array +byte-buffer+) 0 bytes-read StandardCharsets/UTF_8)))
-        result))))
-
-
-(defonce +electrum-requests+ (atom {}))
-
-(defonce +rpc-req-ch+ (async/chan))
-
-(defrecord ReqEntry [method params timestamp])
+(defn put-available-socket! [entry]
+  (swap! +active-electrum-sockets+ assoc (:name entry) entry))
 
 (defn rpc-request [method params]
-  (let [id (str (gensym "id"))]
-    (async/go
-      (async/>! (-> {:method method :params params :id id :jsonrpc "2.0"}
-                    json/write-str
-                    (str "\r\n"))
-                +rpc-req-ch+))
-    (swap! +electrum-requests+ assoc id (->ReqEntry method params 9999))))
+  (let [sock (get-available-socket!)]
+    (doto (-> sock :socket .getOutputStream OutputStreamWriter.)
+      (.write (-> {:method method :params params :id (str (gensym "id")) :jsonrpc "2.0"}
+                  json/write-str
+                  (str "\r\n")))
+      (.flush))
+    (loop [in-stream (-> sock :socket .getInputStream InputStreamReader. BufferedReader.)]
+      (Thread/sleep 500)
+      (println "*** Sleep")
+      (if (.ready in-stream)
+        (let [result (-> in-stream .readLine json/read-str)]
+          (println "*** 222" result)
+          (put-available-socket! sock)
+          result)
+        (recur in-stream)))))
 
-(defonce tor-open-tcp-transport (atom []))
-
-(defonce +rpc-res-ch+ (async/chan))
-
-(defn rpc-response-loop [{:keys [socket] :as tor-tcp-transport}]
-  (while true
-    (.select socket-read-selector)
-    (doseq [k (.selectedKeys socket-read-selector)]
-      (when (.isReadable k)
-        (try (let [channel (.channel k)]
-               (async/go
-                 (->> channel
-                      read-from-channel
-                      (async/>! +rpc-res-ch+))))
-             (catch Exception _
-               (.cancel k)))))
-    ;; Remove closed channels
-    (doseq [k (.keys socket-read-selector)]
-      (when-not (-> k .channel .isOpen)
-        (.cancel k)))))
-
+;;(rpc-request "sserver.version" [])
 
 ;; (go-loop []
 ;;   (try (let [in (BufferedReader. (InputStreamReader. (.getInputStream socket) StandardCharsets/UTF_8))
@@ -164,83 +614,78 @@
 ;;        (catch Exception _
 ;;          (println "Delete" host ":" port))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(comment
+  (defn query-electrum-server
+    ([method params]
+     (let [id (str (gensym "id"))]
+       (-> {:method method :params params :id id :jsonrpc "2.0"}
+           json/write-str
+           (str "\r\n")
+           (query-electrum-server (grab-electrum-server!) id))))
+    ([msg electr id]
+     (http/post client (str "https://" electr ":50001")
+                {:as :json
+                 :body msg
+                 :headers {"content-type" "application/json"}})   ))
 
-(defn query-electrum-server
-  ([method params]
-   (let [id (str (gensym "id"))]
-     (-> {:method method :params params :id id :jsonrpc "2.0"}
-         json/write-str
-         (str "\r\n")
-         (query-electrum-server (pick-electrum-server) id))))
-  ([msg electr id]
-   (http/post client (str "https://" electr ":50001")
-              {:as :json
-               :body msg
-               :headers {"content-type" "application/json"}})   ))
 
 
+  (defn rpc-request [msg]
+    (let [[host port] [(grab-electrum-server!) 50001]
+          tor-proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. "127.0.0.1" 9050)) ; Tor SOCKS proxy
+          socket (Socket. tor-proxy)     ; Connect through Tor
+          ]
+      (try (let [in-stream (do (.connect socket (InetSocketAddress. host port))
+                               (BufferedReader. (InputStreamReader. (.getInputStream socket))))
+                 out-stream (OutputStreamWriter. (.getOutputStream socket))]
+             (println "Connected to" host "through Tor on port" port)
 
-(defn rpc-request [msg]
-  (let [[host port] [(pick-electrum-server) 50001]
-        tor-proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. "127.0.0.1" 9050)) ; Tor SOCKS proxy
-        socket (Socket. tor-proxy) ; Connect through Tor
-        ]
-    (try (let [in-stream (do (.connect socket (InetSocketAddress. host port))
-                             (BufferedReader. (InputStreamReader. (.getInputStream socket))))
-               out-stream (OutputStreamWriter. (.getOutputStream socket))]
-           (println "Connected to" host "through Tor on port" port)
+             ;; Send data to the server
+             (.write out-stream msg)
+             (.flush out-stream)
 
-           ;; Send data to the server
-           (.write out-stream msg)
-           (.flush out-stream)
+             ;; Receive response from the server
+             (println "Server response: " (.readLine in-stream))
 
-           ;; Receive response from the server
-           (println "Server response: " (.readLine in-stream))
+             ;; Close the socket
+             (.close socket))
+           (catch Exception _
+             (println "Delete" host ":" port)))))
 
-           ;; Close the socket
-           (.close socket))
-         (catch Exception _
-           (println "Delete" host ":" port)))))
-
-(def onion1 (make-tor-tcp-transport "wsw6tua3xl24gsmi264zaep6seppjyrkyucpsmuxnjzyt3f3j6swshad.onion" 5002
-                                    "127.0.0.1" 9050))
+  (def onion1 (make-tor-tcp-transport "wsw6tua3xl24gsmi264zaep6seppjyrkyucpsmuxnjzyt3f3j6swshad.onion" 5002
+                                      "127.0.0.1" 9050))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
-(def electrum-hosts
-  (atom ["signet-electrumx.wakiyamap.dev"
-         "testnet.aranguren.org"
-         "testnet.hsmiths.com"
-         "testnet.qtornado.com" "tn.not.fyi"]))
+  (def electrum-hosts
+    (atom ["signet-electrumx.wakiyamap.dev"
+           "testnet.aranguren.org"
+           "testnet.hsmiths.com"
+           "testnet.qtornado.com" "tn.not.fyi"]))
 
-(defn pick-electrum-server []
-(let [host (first @electrum-hosts)]
-  ;; rotate
-  (swap! electrum-hosts #(conj (subvec % 1) host))
-  host))
 
-(defn rpc-request [msg]
-(let [[host port] [(pick-electrum-server) 50001]
-      tor-proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. "127.0.0.1" 9050)) ; Tor SOCKS proxy
-      socket (Socket. tor-proxy) ; Connect through Tor
-      ]
-  (try (let [in-stream (do (.connect socket (InetSocketAddress. host port))
-                           (BufferedReader. (InputStreamReader. (.getInputStream socket))))
-             out-stream (OutputStreamWriter. (.getOutputStream socket))]
-         (println "Connected to" host "through Tor on port" port)
+  (defn rpc-request [msg]
+    (let [[host port] [(grab-electrum-server!) 50001]
+          tor-proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. "127.0.0.1" 9050)) ; Tor SOCKS proxy
+          socket (Socket. tor-proxy)     ; Connect through Tor
+          ]
+      (try (let [in-stream (do (.connect socket (InetSocketAddress. host port))
+                               (BufferedReader. (InputStreamReader. (.getInputStream socket))))
+                 out-stream (OutputStreamWriter. (.getOutputStream socket))]
+             (println "Connected to" host "through Tor on port" port)
 
-         ;; Send data to the server
-         (.write out-stream msg)
-         (.flush out-stream)
+             ;; Send data to the server
+             (.write out-stream msg)
+             (.flush out-stream)
 
-         ;; Receive response from the server
-         (println "Server response: " (.readLine in-stream))
+             ;; Receive response from the server
+             (println "Server response: " (.readLine in-stream))
 
-         ;; Close the socket
-         (.close socket))
-       (catch Exception _
-         (println "Delete" host ":" port)))))
+             ;; Close the socket
+             (.close socket))
+           (catch Exception _
+             (println "Delete" host ":" port)))))
 
-(rpc-request "{\"method\":\"server.version\",\"params\":[],\"id\":\"id23042\",\"jsonrpc\":\"2.0\"}\r\n")
+  (rpc-request "{\"method\":\"server.version\",\"params\":[],\"id\":\"id23042\",\"jsonrpc\":\"2.0\"}\r\n"))
 
 ;; (defn create-tcp-client-through-tor [host port]
 ;;   (let [tor-proxy (Proxy. Proxy$Type/SOCKS (InetSocketAddress. "127.0.0.1" 9050)) ; Tor SOCKS proxy
@@ -301,7 +746,7 @@
            ;; "testnet.qtornado.com" "tn.not.fyi"
            ]))
 
-  (defn pick-electrum-server []
+  (defn grab-electrum-server! []
     (let [host (first @electrum-hosts)]
       ;; rotate
       (swap! electrum-hosts #(conj (subvec % 1) host))
@@ -316,7 +761,7 @@
        (-> {:method method :params params :id id :jsonrpc "2.0"}
            json/write-str
            (str "\r\n")
-           (query-electrum-server (pick-electrum-server) id))))
+           (query-electrum-server (grab-electrum-server!) id))))
     ([msg electr id]
      (http/post client (str "https://" electr ":50001")
                 {:as :json
