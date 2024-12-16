@@ -10,7 +10,7 @@
            [javax.net.ssl SSLContext SSLSocketFactory SSLSocket TrustManager X509TrustManager
             HandshakeCompletedListener SSLSocket]
            [java.security.cert X509Certificate]
-           [java.io BufferedReader InputStreamReader OutputStreamWriter]
+           [java.io BufferedWriter PrintWriter BufferedReader InputStreamReader OutputStreamWriter]
            [java.security SecureRandom]
            [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]
@@ -490,9 +490,9 @@
                            "version" "1.4.2"
                            }
               }
-             (mapv (fn [[name {s "s"}]]
-                     (when s
-                       [name (->> s Integer/parseInt (make-electrum-server name))])))
+             (mapv (fn [[name {s "s" t "t"}]]
+                     (when t
+                       [name (->> t Integer/parseInt (make-electrum-server name))])))
              (into (ordered-map)))))
 
 (defn grab-electrum-server! []
@@ -564,7 +564,7 @@
               ;; FIXME: don't need?
               :timeouts 5000}
              map->TorTcpTransport
-             (connect true))
+             (connect false))
         (catch Exception _))))
 
 (defn get-available-socket! []
@@ -580,22 +580,18 @@
 
 (defn rpc-request [method params]
   (let [sock (get-available-socket!)]
-    (doto (-> sock :socket .getOutputStream OutputStreamWriter.)
-      (.write (-> {:method method :params params :id (str (gensym "id")) :jsonrpc "2.0"}
-                  json/write-str
-                  (str "\r\n")))
+    (doto (-> sock :socket .getOutputStream OutputStreamWriter. BufferedWriter. PrintWriter.)
+      (.println (-> {:method method :params params :id (str (gensym "id")) :jsonrpc "2.0"}
+                    json/write-str))
       (.flush))
-    (loop [in-stream (-> sock :socket .getInputStream InputStreamReader. BufferedReader.)]
-      (Thread/sleep 500)
-      (println "*** Sleep")
-      (if (.ready in-stream)
-        (let [result (-> in-stream .readLine json/read-str)]
-          (println "*** 222" result)
-          (put-available-socket! sock)
-          result)
-        (recur in-stream)))))
+    (let [in-stream (-> sock :socket .getInputStream InputStreamReader. BufferedReader.)
+          result (-> in-stream .readLine json/read-str)]
+      (put-available-socket! sock)
+      result)))
 
-;;(rpc-request "sserver.version" [])
+;;(rpc-request "server.version" [])
+;; {:server VPS.hsmiths.com/45.154.252.104:50002, :proxy SOCKS @ /127.0.0.1:9050, :timeouts 5000, :socket SSLSocket[hostname=VPS.hsmiths.com, port=50002, Session(1734329644665|TLS_AES_256_GCM_SHA384)]}
+;;echo -e {"method":"sserver.version","params":[],"id":"id19819","jsonrpc":"2.0"} | proxychains nc kareoke.qoppa.org 50001
 
 ;; (go-loop []
 ;;   (try (let [in (BufferedReader. (InputStreamReader. (.getInputStream socket) StandardCharsets/UTF_8))
