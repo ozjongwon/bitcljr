@@ -74,7 +74,8 @@
                   (= (str/upper-case bech-str) bech-str))
       (throw (ex-info "Invalid mixed lowercase and uppercase" {:bech-str bech-str})))
 
-    (when-not (<= 1 pos1 (+ pos1 7) bech-size 90)
+    (when-not (and (int? pos1)
+                   (<= 1 pos1 (+ pos1 7) bech-size 90))
       (throw (ex-info "Invalid sperator position '1'" {:position-1 pos1
                                                        :bech-size bech-size})))
     (let [hrp (subs lower-bech-str 0 pos1)
