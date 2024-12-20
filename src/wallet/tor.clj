@@ -576,7 +576,9 @@
         (recur))
     (let [[name entry] (first @+active-electrum-sockets+)]
       (swap! +active-electrum-sockets+ dissoc name)
-      entry)))
+      (if (.isClosed (:socket entry))
+        (connect entry true)
+        entry))))
 
 (defn put-available-socket! [entry]
   (swap! +active-electrum-sockets+ assoc (.getHostName (:server entry)) entry))
@@ -606,18 +608,308 @@
       (.println (-> {:method method :params params :id id :jsonrpc "2.0"}
                     json/write-str))
       (.flush))
-    (let [in-stream (-> sock :socket .getInputStream InputStreamReader. BufferedReader.)
-          result (-> in-stream .readLine json/read-str)]
-      (put-available-socket! sock)
-      (when (str/includes? method ".subscribe")
-        (electrum-subscribe sock method params id))
-      result)))
+    (if-let [result (try (-> sock :socket .getInputStream InputStreamReader. BufferedReader. .readLine json/read-str)
+                         (catch Exception _))]
+      (do
+        (put-available-socket! sock)
+        (when (str/includes? method ".subscribe")
+          (electrum-subscribe sock method params id))
+        result)
+      (recur method params))))
 
 ;; (rpc-request "server.version" [])
 ;; {:server VPS.hsmiths.com/45.154.252.104:50002, :proxy SOCKS @ /127.0.0.1:9050, :timeouts 5000, :socket SSLSocket[hostname=VPS.hsmiths.com, port=50002, Session(1734329644665|TLS_AES_256_GCM_SHA384)]}
 ;; echo -e {"method":"sserver.version","params":[],"id":"id19819","jsonrpc":"2.0"} | proxychains nc kareoke.qoppa.org 50001
+;; (rpc-request :blockchain.headers.subscribe [])
+;; (async/<!! +sub-ch+)
+(async/go-loop [[v ch] (async/alts! [+sub-ch+])]
+  (println "*** GOT" v))
 
-(defonce +electrum-server-queries+
-  {:server.version []
-   :server.banner []
-   :blockchain.headers.subscribe []})
+
+;; (rpc-request :blockchain.address.get_balance ["3G3rD7bGVqMe2yTztJ8h4FzTk6drznm2bR"])
+;; (rpc-request :blockchain.address.get_balance ["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"])
+(rpc-request :server.peers.subscribe [])
+;; 1CbFfq7Y2k7cn8L6Y2V4pZ66pRucjuy2aK
+;; 1LvqK2czPQsZqk9hCpd57A3t9iJtL8zzyu
+
+(comment
+  (defonce +electrum-server-queries+
+    {
+     :blockchain.address.get_balance [:address] ;; get wallet balance
+     :server.version []
+     :server.banner []
+     :blockchain.headers.subscribe []
+
+
+
+     :server.peers.subscribe []
+     :blockchain.numblocks.subscribe []
+
+     :blockchain.address.subscribe [:address]
+     :blockchain.transaction.get [:tx-hash]
+     :blockchain.address.get_history [:address]
+     :blockchain.scripthash.get_balance [:scripthash]
+     :blockchain.transaction.broadcast [:tx-hash]
+     :blockchain.address.listunspent [:address]
+
+     :blockchain.address.get_mempool [??? address]
+
+
+     blockchain.address.get_proof
+
+
+     blockchain.utxo.get_address
+     blockchain.block.get_header
+     blockchain.block.get_chunk
+
+
+     blockchain.transaction.get_merkle
+
+     blockchain.estimatefee})
+  )
+
+
+;; ### Typical Wallet JSON RPC Operations to Electrum Server
+
+;; When interacting with an Electrum server, a wallet typically needs to perform several operations related to querying balance, getting transaction history, managing addresses, creating transactions, and broadcasting them. Here's a detailed overview of common wallet operations, illustrating the **what**, **why**, **when**, **how**, and the relevant **Electrum JSON-RPC methods**.
+
+;; ---
+
+;; ### 1. **Get Wallet Balance**
+
+;; - **What**: Check the current balance of your wallet.
+;; - **Why**: To know how much Bitcoin you own or to decide whether you need to make a transaction (e.g., send Bitcoin or check your available funds).
+;; - **When**: Whenever you need to check the balance, especially before sending transactions or reviewing account status.
+;; - **How**: Use `blockchain.address.get_balance` to query the balance of a wallet address.
+
+;; **Method**: `blockchain.address.get_balance`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "blockchain.address.get_balance",
+;;  "params": ["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"]
+;;  }
+;; ```
+;; **Explanation**: Here, you're requesting the balance for a specific Bitcoin address.
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": [100000000, 100000000],
+;;  "id": 1
+;;  }
+;; ```
+;; - The result contains two values:
+;; - **Confirmed balance** (100,000,000 satoshis, which is 1 BTC).
+;; - **Unconfirmed balance** (also 1 BTC in this example).
+
+;; ---
+
+;; ### 2. **Get Transaction History**
+
+;; - **What**: Retrieve all the transactions associated with your wallet address.
+;; - **Why**: To review past transactions, confirm received payments, or prepare to send coins by viewing the history of previous outputs.
+;; - **When**: Use this whenever you need to see past transactions for a wallet or an address.
+;; - **How**: Use `blockchain.address.get_history` to get the transaction history for a given address.
+
+;; **Method**: `blockchain.address.get_history`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "blockchain.address.get_history",
+;;  "params": ["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"]
+;;  }
+;; ```
+
+;; **Explanation**: You query the Electrum server for the history of the given address.
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": [
+;;             {"tx_hash": "b63b4328ff9b82adf8ff7f941a7e488e9cc618c828e8a017f900dfab31ee04ea", "height": 640000, "timestamp": 1609459200},
+;;             {"tx_hash": "4d2e06c1fbf1c36b648fbf4c9d6c2cf987e7b458d57e97a06cc3e3b87dbd6c75", "height": 641000, "timestamp": 1609545600}
+;;             ],
+;;  "id": 1
+;;  }
+;; ```
+;; - **Explanation**: This response provides a list of transaction hashes, heights, and timestamps, showing the history of the provided address.
+
+;; ---
+
+;; ### 3. **Create a Transaction (Get Unspent Outputs)**
+
+;; - **What**: Retrieve the unspent transaction outputs (UTXOs) for a specific wallet address. These are the outputs that can be used as inputs for new transactions.
+;; - **Why**: To identify available funds for creating a new transaction.
+;; - **When**: When creating a new transaction, you need to gather UTXOs associated with your address.
+;; - **How**: Use `blockchain.address.get_unspent` to fetch unspent outputs.
+
+;; **Method**: `blockchain.address.get_unspent`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "blockchain.address.get_unspent",
+;;  "params": ["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"]
+;;  }
+;; ```
+
+;; **Explanation**: You query the Electrum server for all unspent outputs of the given address.
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": [
+;;             {"tx_hash": "b63b4328ff9b82adf8ff7f941a7e488e9cc618c828e8a017f900dfab31ee04ea", "tx_pos": 0, "value": 100000000}
+;;             ],
+;;  "id": 1
+;;  }
+;; ```
+;; - **Explanation**: The response provides the unspent transaction outputs (UTXOs) associated with the address, showing the transaction hash, position in the output, and value (in satoshis).
+
+;; ---
+
+;; ### 4. **Create and Broadcast a Transaction**
+
+;; - **What**: Create a raw Bitcoin transaction and broadcast it to the network.
+;; - **Why**: After you've gathered the UTXOs and constructed a transaction, you broadcast it to the Bitcoin network to complete the transfer.
+;; - **When**: After building the transaction, you need to broadcast it to the network for miners to include it in a block.
+;; - **How**: Use `blockchain.transaction.broadcast` to send the raw transaction to the network.
+
+;; **Method**: `blockchain.transaction.broadcast`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "blockchain.transaction.broadcast",
+;;  "params": ["0200000000010100...f7e74d00"]
+;;  }
+;; ```
+
+;; **Explanation**: You send the raw transaction (in hexadecimal format) to the server for broadcasting.
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": "txid",
+;;  "id": 1
+;;  }
+;; ```
+;; - **Explanation**: The response returns the transaction ID (`txid`) of the broadcasted transaction.
+
+;; ---
+
+;; ### 5. **Subscribe to New Headers**
+
+;; - **What**: Subscribe to the latest headers of the Bitcoin blockchain.
+;; - **Why**: To receive notifications when new blocks are added to the blockchain, enabling real-time tracking of the blockchain’s progress.
+;; - **When**: When you want to track new blocks in real time, for example, to monitor the latest block confirmations.
+;; - **How**: Use `blockchain.headers.subscribe` to subscribe to new headers.
+
+;; **Method**: `blockchain.headers.subscribe`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "blockchain.headers.subscribe",
+;;  "params": []
+;;  }
+;; ```
+
+;; **Explanation**: You're subscribing to receive notifications about new block headers.
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": [
+;;             "00000000000000000009e60c9c1b3f9cbeed982303f8e5a20b0b84cc2e80eb6b",
+;;             1000000,
+;;             1558485855
+;;             ],
+;;  "id": 1
+;;  }
+;; ```
+;; - **Explanation**: The response provides the new block hash, block height, and timestamp of the new block.
+
+;; ---
+
+;; ### 6. **Check Server Status**
+
+;; - **What**: Check if the Electrum server is operational and its sync status.
+;; - **Why**: To ensure that the Electrum server is up and running, and it's synced to the Bitcoin network.
+;; - **When**: When you want to check if the server is responsive or to confirm if the server is synced with the blockchain.
+;; - **How**: Use `server.version` to get the version of the Electrum server and check if it’s responsive.
+
+;; **Method**: `server.version`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "server.version",
+;;  "params": []
+;;  }
+;; ```
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": ["ElectrumX", "1.9.4"],
+;;  "id": 1
+;;  }
+;; ```
+
+;; - **Explanation**: The server responds with the version of the Electrum server, confirming it’s online.
+
+;; ---
+
+;; ### 7. **Get Server Information (e.g., Network Info)**
+
+;; - **What**: Retrieve network or server-specific information, such as the number of connected peers.
+;; - **Why**: To ensure that the server has adequate connectivity to the Bitcoin network, which can be helpful for performance and troubleshooting.
+;; - **When**: Use this method if you want to monitor server health or assess its connectivity.
+;; - **How**: Use `server.peers.subscribe` to get information about connected peers.
+
+;; **Method**: `server.peers.subscribe`
+
+;; **Example Request**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "method": "server.peers.subscribe",
+;;  "params": []
+;;  }
+;; ```
+
+;; **Example Response**:
+;; ```json
+;; {
+;;  "jsonrpc": "2.0",
+;;  "result": [
+;;             ["2600:1900:4001:ed::", 50002, 50001, "v1.4.2", "s50002", "t50001"]
+;;             ],
+;;  "id": 1
+;;  }
+;; ```
+
+;; - **Explanation**: The server returns information about connected peers, including IP addresses, ports, and protocol versions.
+
+;; ---
+
+;; ### Conclusion:
+;; The typical wallet operations in Electrum revolve around querying balances, creating transactions, broadcasting them, and subscribing to blockchain updates. These operations rely on several core JSON-RPC methods such as `blockchain.address.get_balance`, `blockchain.transaction.broadcast`, `blockchain.headers.subscribe
+
+;; `, and `server.version`, among others. Using these methods allows your wallet to interact with the Electrum server for tasks like balance checking, transaction creation, and syncing with the Bitcoin network.
