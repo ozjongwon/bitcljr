@@ -48,17 +48,15 @@
                                             process-carry)]
           (recur more-values next-carry (into result data-to-add)))
         (let [[carry-data {:keys [data size]}] (process-carry carry)]
-          (if (zero? data)
-            (into result carry-data)
-            (->> size
-                 (- to-bits)
-                 (bit-shift-left data) ;; padding
-                 (conj carry-data)
-                 (into result))))))))
+          (into result (conj carry-data (if (zero? data)
+                                          data ;; padding
+                                          (bit-shift-left data (- to-bits size))))))))))
 
 (comment
-  (convert-bits [2r11010101 2r01010101] 8 5)
-  (convert-bits [2r11110000 2r10101010] 8 5)
-  (convert-bits [2r10011001 2r11100011] 8 5)
-  (convert-bits [2r00010101 2r11001100] 8 5)
-  (convert-bits [2r01101001 2r10011010] 8 5))
+  (for [n [2r10101100 2r0000000100 2r11111111 2r01010101 2r00001111
+           2r11111000 2r11100000 2r00000001 2r00001111]]
+    (let [eight-bitv (n-bits->m-bits [n] 8 5)]
+      ;;      (println "***" n eight-bitv (n-bits->m-bits eight-bitv 5 8))
+      (= [n] (n-bits->m-bits eight-bitv 5 8))))
+
+  )
