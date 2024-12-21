@@ -65,6 +65,9 @@
 
 (defn decode [hrp addr]
   (let [[encoding bec-hrp bec-data] (bc32/decode addr)]
+    (when (empty? bec-data)
+      (throw (ex-info "Invalid empty data" {:address addr})))
+
     (when-not (= hrp bec-hrp)
       (throw (ex-info "Mismatched decoded HRP" {:hrp-expect hrp
                                                 :hrp-got bec-hrp})))
