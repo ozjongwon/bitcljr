@@ -54,8 +54,6 @@
    ["16plkw9" "Invalid sperator position '1'"]
    ["1p2gdwpf" "Invalid sperator position '1'"]])
 
-
-
 (deftest valid-bech-checksum
   (testing "Valid bech32"
     (doseq [tv +valid-checksum-bech32+]
