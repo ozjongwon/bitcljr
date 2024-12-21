@@ -30,14 +30,14 @@
     [(Integer/toString (:data bit2) 2)
      (Integer/toString (:data bit3) 2)]))
 
-(defn n-bits->m-bits
+(defn m-bits->n-bits
   ([data from-bits to-bits]
-   (n-bits->m-bits data from-bits to-bits true))
+   (m-bits->n-bits data from-bits to-bits true))
   ([data from-bits to-bits padding?]
    (letfn [(process-carry [carry]
              (loop [{:keys [data size] :as bit-data} carry result []]
-               (cond (zero? size) [result nil]
-                     (= size to-bits) [(conj result data) nil]
+               (cond (zero? size) [result (make-bit-data 0 0)]
+                     (= size to-bits) [(conj result data) (make-bit-data 0 0)]
                      (< size to-bits) [result (make-bit-data data size)]
                      :else (let [[a b] (bit-split bit-data to-bits)]
                              (recur b (conj result (:data a)))))))]
@@ -51,15 +51,46 @@
                                              process-carry)]
            (recur more-values next-carry (into result data-to-add)))
          (let [[carry-data {:keys [data size]}] (process-carry carry)]
-           (into result (cond (and padding? (zero? data)) (conj carry-data data)
+           (into result (cond (and padding? (zero? data) (pos? size)) (conj carry-data data)
                               (zero? data) carry-data
                               :else (conj carry-data (bit-shift-left data (- to-bits size)))))))))))
 
 (comment
   (for [n [2r10101100 2r0000000100 2r11111111 2r01010101 2r00001111
            2r11111000 2r11100000 2r00000001 2r00001111]]
-    (let [eight-bitv (n-bits->m-bits [n] 8 5)]
-      ;; (println "***222" n eight-bitv (n-bits->m-bits eight-bitv 5 8 false))
-      (= [n] (n-bits->m-bits eight-bitv 5 8 false))))
-
+    (let [eight-bitv (m-bits->n-bits [n] 8 5)]
+      ;; (println "***222" n eight-bitv (m-bits->n-bits eight-bitv 5 8 false))
+      (= [n] (m-bits->n-bits eight-bitv 5 8 false))))
   )
+
+(defn decode [hrp addr]
+  (let [[encoding bec-hrp bec-data] (bc32/decode addr)]
+    (when-not (= hrp bec-hrp)
+      (throw (ex-info "Mismatched decoded HRP" {:hrp-expect hrp
+                                                :hrp-got bec-hrp})))
+    (let [witness-prog (m-bits->n-bits (subvec bec-data 1) 5 8 false)
+          len (count witness-prog)
+          witness-ver (get bec-data 0)]
+      (when-not (<= 2 len 40)
+        (throw (ex-info "Invalid data size" {:data witness-prog})))
+
+      (condp apply [witness-ver] ;; 'witness version'
+        #(< 16 %)
+        (throw (ex-info "Invalid witness version"
+                        {:witness-version (get witness-prog 0)}))
+        #(and (zero? %) (not (contains? #{20 32} len)))
+        (throw (ex-info "Invalid witness program length"
+                        {:witness-program-length len}))
+        #(or (and (zero? %) (not= encoding :bech32))
+             (and (not (zero? %)) (not= encoding :bech32m)))
+        (throw (ex-info "Invalid enocding & witness version"
+                        {:encoding encoding
+                         :witness-version (get witness-prog 0)}))
+        :ok)
+      [witness-ver witness-prog])))
+
+(defn encode [hrp wit-ver wit-prog]
+  (let [encoding (if (= wit-ver 0) :bech32 :bech32m)
+        encoded (bc32/encode hrp `[~wit-ver ~@(m-bits->n-bits wit-prog 8 5)] encoding)]
+    (assert (decode hrp encoded))
+    encoded))
