@@ -41,11 +41,12 @@
                      (< size to-bits) [result (make-bit-data data size)]
                      :else (let [[a b] (bit-split bit-data to-bits)]
                              (recur b (conj result (:data a)))))))]
-     (loop [[value & more-values] data
+     (loop [[signed-value & more-values] data
             carry (make-bit-data 0 0)
             result []]
-       (if value
-         (let [[data-to-add next-carry] (->> from-bits
+       (if signed-value
+         (let [value (bit-and signed-value 0xff)
+               [data-to-add next-carry] (->> from-bits
                                              (make-bit-data value)
                                              (bit-merge carry)
                                              process-carry)]
@@ -54,6 +55,17 @@
            (into result (cond (and padding? (zero? data) (pos? size)) (conj carry-data data)
                               (zero? data) carry-data
                               :else (conj carry-data (bit-shift-left data (- to-bits size)))))))))))
+
+(comment
+  (let [data (byte-array [-4, 114, 80, -94, 17, -34, -35, -57, 14, -27, -94, 115, -115, -27, -16, 120,
+                          23, 53, 28, -17])]
+    (println (buddy.core.codecs/bytes->hex data))
+    (= (m-bits->n-bits data 8 5 true)
+       [31, 17, 25, 5, 1, 8, 16, 17, 27, 27, 14, 28, 14, 3, 23, 5, 20, 9, 25, 24, 27, 25, 15, 16, 15, 0, 11, 19, 10, 7, 7, 15]))
+  ;; 0xfc7250a211deddc70ee5a2738de5f07817351cef
+  ;; 0xff111905ff081011fbff0efc0e03ff05f40919f8ff19ff100f000b130a07ff0f
+  "1111110001110010010100001010001000010001110111101101110111000111000011101110010110100010011100111000110111100101111100000111100000010111001101010001110011101111"
+  )
 
 (comment
   (for [n [2r10101100 2r0000000100 2r11111111 2r01010101 2r00001111
