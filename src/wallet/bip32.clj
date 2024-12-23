@@ -13,29 +13,10 @@
 ;;;
 ;;; Key making and validating
 ;;;
-
-(defn validate-private-key
-  [^bytes key-bytes]
-  (when-let [msg (cond (not= 32 (count key-bytes)) "The key byte size msut be 32"
-
-                       (not (< 0 (BigInteger. 1 key-bytes)
-                               (-> "secp256k1"
-                                   CustomNamedCurves/getByName
-                                   .getN)))
-                       "The key is out of the EC range")]
-    (throw (ex-info "Key validation failed, a new seed required" {:reason msg}))))
-
-(defn raw-private-key->public-key [raw-private-key]
-  (-> "secp256k1"
-      CustomNamedCurves/getByName
-      .getG
-      (.multiply (BigInteger. 1 raw-private-key))
-      (.getEncoded true)))
-
 (defn private-key->public-key [private-key]
   (assert (ecc/private-key? private-key))
   (ecc/make-public-key (assoc private-key
-                              :key (raw-private-key->public-key (:key private-key))
+                              :key (ecc/raw-private-key->public-key (:key private-key))
                               :version (get-in net/+networks+ ["main" "xpub"]))))
 
 (defn seed->hd-key
@@ -49,7 +30,7 @@
          ;; Split into private key and chain code
          private-bytes (byte-array (take 32 raw))
          chain-code (byte-array (drop 32 raw))]
-     (validate-private-key private-bytes)
+     (ecc/validate-private-key private-bytes)
      (ecc/make-private-key private-bytes chain-code version 0 0 0))))
 
 ;;;
