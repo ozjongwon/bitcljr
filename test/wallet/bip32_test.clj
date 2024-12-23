@@ -124,7 +124,7 @@
     "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHL",
     :err-msg "Checksum failed"}])
 
-(deftest bip32-test
+(deftest valid-keys-bip32-test
   (testing "Valid derive keys"
     (doseq [[seed test-vector] valid-test-vectors]
       (doseq [{:keys [chain pub prv]} test-vector]
@@ -148,11 +148,14 @@
                  (->> [10 20]
                       (path->child derived-xprv)
                       private-key->public-key
-                      encode-hd-key)))))))
-  (testing "Invalid keys"
-    (doseq [{:keys [key err-msg]} invalid-test-vectors]
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo (re-pattern err-msg) (decode-hd-key key)))))
+                      encode-hd-key))))))))
 
+(deftest invalid-keys-bip32-test
+  (testing "Invalid keys"
+     (doseq [{:keys [key err-msg]} invalid-test-vectors]
+       (is (thrown-with-msg? clojure.lang.ExceptionInfo (re-pattern err-msg) (decode-hd-key key))))))
+
+(deftest identity-bip32-test
   (testing "Identity"
     (doseq [xk ["xprv9uPDJpEQgRQfDcW7BkF7eTya6RPxXeJCqCJGHuCJ4GiRVLzkTXBAJMu2qaMWPrS7AANYqdq6vcBcBUdJCVVFceUvJFjaPdGZ2y9WACViL4L"
                 "xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y"]]
