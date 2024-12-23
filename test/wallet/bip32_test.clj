@@ -3,6 +3,7 @@
             [wallet.bip32 :refer :all]
             [wallet.base58 :as b58]
             [wallet.bip39 :as b39]
+            [wallet.ecc :as ecc]
             [clojure.string :as str]
             [buddy.core.codecs :as codecs]))
 
@@ -136,9 +137,9 @@
             (println "*** FAIL:" seed derived-xprv (encode-hd-key derived-xprv)))
           (when-not (= (encode-hd-key derived-xpub) pub)
             (println "*** FAIL:" seed derived-xpub (encode-hd-key derived-xpub)))
-          (is (private-key? root-xprv))
-          (is (private-key? derived-xprv))
-          (is (public-key? derived-xpub))
+          (is (ecc/private-key? root-xprv))
+          (is (ecc/private-key? derived-xprv))
+          (is (ecc/public-key? derived-xpub))
           (is (= (encode-hd-key derived-xprv) prv))
           (is (= (encode-hd-key derived-xpub) pub))
           (is (= (->> [10 20]
