@@ -27,3 +27,12 @@
      (bit-or (bit-shift-left acc 8) (bit-and byte 0xFF)))  ; Shift left and combine bytes
    0
    barr))
+
+(defn position
+  ([v el]
+   (position v el 0))
+  ([v el start]
+   (loop [[x & xs] (nthrest v start) idx start]
+     (cond (= x el) idx
+           x (recur xs (inc idx))
+           :else nil))))
