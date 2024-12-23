@@ -71,7 +71,6 @@
   (for [n [2r10101100 2r0000000100 2r11111111 2r01010101 2r00001111
            2r11111000 2r11100000 2r00000001 2r00001111]]
     (let [eight-bitv (m-bits->n-bits [n] 8 5)]
-      ;; (println "***222" n eight-bitv (m-bits->n-bits eight-bitv 5 8 false))
       (= [n] (m-bits->n-bits eight-bitv 5 8 false))))
   )
 

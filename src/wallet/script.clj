@@ -4,6 +4,7 @@
             [wallet.bip32 :as b32] ;; FIXME: hash160
             [wallet.segwit-addr :as segaddr]
             [wallet.base58 :as b58]
+            [wallet.ecc :as ecc]
             [buddy.core.hash :as hash]
             [clojure.string :as str]
             ;; [wallet.bip39 :as b39]
@@ -37,7 +38,7 @@
                    b32/hash160)
              0x88 0xac]))
 
-;; (p2pkh (b32/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
+;; (p2pkh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
 
 (defrecord P2SH [data]
   NonBech32
@@ -87,10 +88,6 @@
                               (<= 0x51 op-n 0x60) (- op-n 0x50)
                               :else (throw (ex-info "Invalid OP-n for witness version n"
                                                     {:version op-n})))]
-            (println "???444? p2wpkh/p2wsh/p2tr "
-                     (get-in net/+networks+ ["main" "bech32"])
-                     version
-                     (codecs/bytes->hex (byte-array (subvec data 2))))
             (segaddr/encode (get-in net/+networks+ ["main" "bech32"])
                             version
                             (subvec data 2)))
@@ -118,7 +115,6 @@
   (try (let [data (b58/decode-check addr)
              [script-prefix script-postfix]
              (get +mainnet-key->prefix+ (get data 0))]
-         (println "<<<<" (get data 0) script-prefix (rest data) script-postfix)
          `[~@script-prefix ~@(rest data) ~@script-postfix])
        (catch Exception _
          ;;Try Bech32 address
@@ -135,7 +131,7 @@
 (defn p2sh [script]
   (->P2SH `[0xa9 0x14 ~@(b32/hash160 (:key script)) 0x87]))
 
-;; (p2sh (b32/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
+;; (p2sh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
 
 (defn p2wpkh [privkey]
   (->P2WPKH `[0x00 0x14 ~@(-> privkey
@@ -143,11 +139,11 @@
                               :key
                               b32/hash160)]))
 
-;;(p2wpkh (b32/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
+;;(p2wpkh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
 
 (defn p2wsh [script]
   (->P2WSH `[0x00 0x20 ~@(hash/sha256 (:key script))]))
 
 (defn p2tr [pubkey]
-  ;; FIXME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   (->P2TR [0x51 0x20 pubkey]))
