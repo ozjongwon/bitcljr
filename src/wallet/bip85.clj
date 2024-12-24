@@ -3,6 +3,7 @@
             [wallet.bip39 :as b39]
             [wallet.base58 :as b58]
             [wallet.networks :as net]
+            [wallet.ecc :as ecc]
             [buddy.core.crypto :as crypto]
             [buddy.core.mac :as mac]
             [buddy.core.codecs :as codecs]))
@@ -50,7 +51,7 @@
                (conj 0x01) ;; compressed
                )]
        byte-array
-       b58/encode-check)))
+       (b58/encode-check :bytes))))
 
 
 
@@ -63,8 +64,8 @@
          pkey (subvec entropy 32)]
      (-> pkey
          byte-array
-         (b32/make-hd-private-key (byte-array chain-code)
-                                  (get-in net/+networks+ ["main" "xprv"]) 0 0 0)
+         (ecc/make-private-key (byte-array chain-code)
+                               (get-in net/+networks+ ["main" "xprv"]) 0 0 0)
          b32/encode-hd-key))))
 
 
