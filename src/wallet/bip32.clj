@@ -165,7 +165,8 @@
                                     ~@(vec fingerprint)    ; 4 bytes
                                     ~@(vec (util/->n-byte-array child-index 4)) ; 4 bytes
                                     ~@(vec chain-code) ; 32 bytes
-                                    ~@(vec raw-key-bytes)]))))
+                                    ~@(vec raw-key-bytes)])
+                      :bytes)))
 
 (defn decode-hd-key [hd-key-str]
   (let [vprefix (subs hd-key-str 0 4)]
@@ -173,7 +174,7 @@
                       (conj ["main"])
                       (get-in net/+networks+))]
       (let [[version depth fingerprint index chain-code raw-key]
-            (loop [bytes (b58/decode-check hd-key-str) [n-bytes & more-n-bytes] [4 1 4 4 32] result []]
+            (loop [bytes (b58/decode-check hd-key-str :bytes) [n-bytes & more-n-bytes] [4 1 4 4 32] result []]
               (if n-bytes
                 (recur (drop n-bytes bytes) more-n-bytes (conj result (take n-bytes bytes)))
                 (conj result bytes)))
