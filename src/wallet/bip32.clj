@@ -64,8 +64,7 @@
   (make-child-data-bytes [{:keys [key]} index]
     ;; only hardened or not matters, not public/private
     (-> (if (hardened-index? index)
-          `[~@(when-not (= (first key) 0x0)
-                `(0x0))
+          `[~@(repeat (- 33 (count key)) 0x00)
             ~@key ~@(util/->n-byte-array index 4)]
           `[~@(ecc/raw-private-key->public-key key) ~@(util/->n-byte-array index 4)])
         (byte-array)))
@@ -117,6 +116,7 @@
                         ec-key)]
     (->> key hash160 (take 4) byte-array)))
 
+;;https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#user-content-Private_parent_key_rarr_private_child_key
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
   (when (> index 0xFFFFFFFF)
     (throw (ex-info "Index must be: index <= 2^32" {:index index})))

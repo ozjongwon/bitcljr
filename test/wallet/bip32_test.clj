@@ -133,10 +133,6 @@
                             seed->hd-key)
               derived-xprv (path->child root-xprv chain)
               derived-xpub (private-key->public-key derived-xprv)]
-          (when-not (= (encode-hd-key derived-xprv) prv)
-            (println "*** FAIL:" seed derived-xprv (encode-hd-key derived-xprv)))
-          (when-not (= (encode-hd-key derived-xpub) pub)
-            (println "*** FAIL:" seed derived-xpub (encode-hd-key derived-xpub)))
           (is (ecc/private-key? root-xprv))
           (is (ecc/private-key? derived-xprv))
           (is (ecc/public-key? derived-xpub))
