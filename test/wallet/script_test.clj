@@ -1,3 +1,4 @@
+;; FIXME: 3 errors
 (ns wallet.script-test
   (:require [clojure.test :refer :all]
             [wallet.bip32 :as b32]

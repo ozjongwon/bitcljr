@@ -28,7 +28,8 @@
     23)
   #_
   (address [this]
-    (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" "p2pkh"])])) ~@(subvec data 3 23)))
+    (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" "p2pkh"])]) :bytes)
+    ~@(subvec data 3 23)))
 
 (defn p2pkh [privkey]
   (->P2PKH `[0x76 0xa9 0x14
@@ -50,7 +51,7 @@
     22)
   #_
   (address [this]
-    (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" "p2sh"])])) ~@(subvec data 2 22)))
+    (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" "p2sh"])]) :bytes) ~@(subvec data 2 22)))
 
 (defrecord P2WPKH [data])
 (defrecord P2WSH [data])
@@ -64,7 +65,8 @@
       (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" (network-key p2-record)])
                                       ~@(subvec data
                                                 (data-start-index p2-record)
-                                                (data-end-index p2-record))]))
+                                                (data-end-index p2-record))])
+                        :bytes)
       (P2WPKH P2WSH P2TR)
       (let [op-n (first data)
             version (cond (zero? op-n) 0
@@ -81,7 +83,8 @@
           (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" (network-key p2-record)])
                                           ~@(subvec data
                                                     (data-start-index p2-record)
-                                                    (data-end-index p2-record))]))
+                                                    (data-end-index p2-record))])
+                            :bytes)
           (or (instance? P2WPKH p2-record) (instance? P2WSH p2-record) (instance? P2TR p2-record))
           (let [op-n (first data)
                 version (cond (zero? op-n) 0
@@ -112,7 +115,7 @@
       first))
 
 (defn address->script-pubkey [addr]
-  (try (let [data (b58/decode-check addr)
+  (try (let [data (b58/decode-check addr :bytes)
              [script-prefix script-postfix]
              (get +mainnet-key->prefix+ (get data 0))]
          `[~@script-prefix ~@(rest data) ~@script-postfix])
