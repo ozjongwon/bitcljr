@@ -19,55 +19,80 @@
 
 (defonce divmod (juxt quot mod))
 
-(defn encode [hex-str]
-  (letfn [(get-base-58-char [i]
-            (get +alphabet+ i))]
-    (loop [[q r] (-> hex-str
-                     codecs/hex->bytes
-                     BigInteger.
-                     (divmod 58))
-           result ()]
-      (if (pos? q)
-        (recur (divmod q 58) (cons (get-base-58-char r) result))
-        (let [result-list (cons (get-base-58-char r) result)
-              count0 (count (take-while #(= \0 %) hex-str))]
-          (apply str (into result-list (repeat (quot count0 2) \1))))))))
+(defn- ensure-bytes [hex-or-bytes]
+  (cond (bytes? hex-or-bytes) hex-or-bytes
+        (string? hex-or-bytes) (codecs/hex->bytes hex-or-bytes)
+        :else (throw (ex-info "Hex string or byte array is required"
+                              {:input hex-or-bytes}))))
 
+(defn- ->codecs-fn [in]
+  (if (= in :bytes)
+    identity
+    (->> "->bytes"
+         (str "codecs/"(name in))
+         symbol
+         resolve)))
 
-(defn encode [hex-or-bytes]
-  (letfn [(get-base-58-char [i]
-            (get +alphabet+ i))]
-    (loop [[q r] (-> (if (string? hex-or-bytes)
-                       (codecs/hex->bytes hex-or-bytes)
-                       hex-or-bytes)
-                     BigInteger.
-                     (divmod 58))
-           result ()]
-      (if (pos? q)
-        (recur (divmod q 58) (cons (get-base-58-char r) result))
-        (let [result-list (cons (get-base-58-char r) result)
-              count0 (count (take-while #(= \0 %) hex-or-bytes))]
-          (apply str (into result-list (repeat (quot count0 2) \1))))))))
+(defn- <-codecs-fn [out]
+  (comp
+   (if (= out :bytes)
+     identity
+     (->> (str "codecs/bytes->"(name out))
+          symbol
+          resolve))
+   byte-array))
 
-(defn decode [b58-str]
-  (loop [i (biginteger 1) j (dec (count b58-str)) result 0]
-    (if (< j 0)
-      (-> result
-          biginteger
-          .toByteArray
-          codecs/bytes->hex)
-      (recur (* i 58) (dec j) (+ result (* (b58-alpha->idx (get b58-str j)) i))))))
+(defn encode
+  ([in]
+   (encode :hex))
+  ([in in-key]
+   ;;   "in-key: #{:str :hex :b64 :b64u :byte}
+   "in-key: #{:str :hex :b64 :b64u :bytes}"
+   (if (empty? in)
+     in
+     (letfn [(get-base-58-char [i]
+               (get +alphabet+ i))]
+       (let [b ((->codecs-fn in-key) in)
+             big-i (BigInteger. 1 b)]
+         (loop [[q r] (divmod big-i 58)
+                result ()]
+           (if (pos? q)
+             (recur (divmod q 58) (cons (get-base-58-char r) result))
+             (let [result-list (cons (get-base-58-char r) result)
+                   count1 (count (take-while #(= \1 %) result-list))
+                   count0 (count (take-while #(= 0 %) b))]
+               (apply str (into result-list (repeat (- count0 count1) \1)))))))))))
 
-(defn encode-check [hex-str]
-  (let [bytes (codecs/hex->bytes hex-str)]
-    (encode (byte-array `[~@bytes ~@(->> bytes double-sha256 (take 4))]))))
+(defn decode [b58-str out-key]
+  "out-key: #{:str :hex :b64 :b64u :long :b64-str :bytes}"
+  ((<-codecs-fn out-key)
+   (cond (empty? b58-str) []
+         (= b58-str "1") [0]
+         :else
+         (loop [i (bigint 1) j (count b58-str) result 0]
+           (if (pos? j)
+             (recur (* i 58) (dec j) (+ result (* (b58-alpha->idx (get b58-str (dec j))) i)))
+             (let [maybe-signed-bytes (-> result biginteger .toByteArray)
+                   result-bytes (if (zero? (first maybe-signed-bytes))
+                                  (java.util.Arrays/copyOfRange maybe-signed-bytes 1 (count maybe-signed-bytes))
+                                  maybe-signed-bytes)
+                   count1 (count (take-while #(= \1 %) b58-str))
+                   count0 (count (take-while #(= 0 %) result-bytes))]
+               (into (vec (repeat (- count1 count0) 0)) result-bytes)))))))
 
-(defn decode-check [s]
-  (let [b (->> (decode s) (codecs/hex->bytes))
+(defn encode-check [in in-key]
+  "in-key: #{:str :hex :b64 :b64u :bytes}"
+  (let [bytes ((->codecs-fn in-key) in)]
+    (encode (byte-array `[~@bytes ~@(->> bytes double-sha256 (take 4))])
+            :bytes)))
+
+(defn decode-check [b58-str out-key]
+  "out-key: #{:str :hex :b64 :b64u :long :b64-str :bytes}"
+  (let [b (decode b58-str :bytes)
         checksum (->> b (take-last 4))
         msg-l (->> (drop-last 4 b))
         actual-checksum (->> msg-l byte-array double-sha256 (take 4))]
     (if (= checksum actual-checksum)
-      (codecs/bytes->hex (byte-array msg-l))
+      ((<-codecs-fn out-key) msg-l)
       (throw (ex-info "Checksum failed" {:expect checksum
                                          :actual actual-checksum})))))
