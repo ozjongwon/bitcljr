@@ -31,6 +31,7 @@
     ([this]
      (taproot-tweak this ""))
     ([{:keys [key]} h]
+     ;; FIXME: not 100% sure
      (%taproot-tweak key h))))
 
 (extend-type wallet.ecc.PublicKey
