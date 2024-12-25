@@ -16,7 +16,7 @@
 (defn private-key->public-key [private-key]
   (assert (ecc/private-key? private-key))
   (ecc/make-public-key (assoc private-key
-                              :key (ecc/raw-private-key->public-key (:key private-key))
+                              :key (ecc/derive-secp256k1-public-key (:key private-key))
                               :version (get-in net/+networks+ ["main" "xpub"]))))
 
 (defn seed->hd-key
@@ -66,7 +66,7 @@
     (-> (if (hardened-index? index)
           `[~@(repeat (- 33 (count key)) 0x00)
             ~@key ~@(util/->n-byte-array index 4)]
-          `[~@(ecc/raw-private-key->public-key key) ~@(util/->n-byte-array index 4)])
+          `[~@(ecc/derive-secp256k1-public-key key) ~@(util/->n-byte-array index 4)])
         (byte-array)))
 
   (make-hd-key [{:keys [key]} secret]

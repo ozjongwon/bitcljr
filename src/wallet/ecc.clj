@@ -38,12 +38,17 @@
   ([key chain-code version fingerprint depth child-index]
    (->PublicKey key chain-code version fingerprint depth child-index)))
 
-(defn raw-private-key->public-key [raw-private-key]
-  (-> "secp256k1"
-      CustomNamedCurves/getByName
-      .getG
-      (.multiply (BigInteger. 1 raw-private-key))
-      (.getEncoded true)))
+(defn derive-secp256k1-public-key
+  ([raw-private-key]
+   (derive-secp256k1-public-key raw-private-key nil))
+  ([raw-private-key scalar-to-add]
+   (let [g (-> "secp256k1" CustomNamedCurves/getByName .getG)]
+     (-> g
+         (.multiply (BigInteger. 1 raw-private-key)) ;; pub key1
+         (cond->                                     ;; pub key2 (by adding a point)
+             scalar-to-add (.add (->> (BigInteger. 1 scalar-to-add)
+                                      (.multiply g))))
+         (.getEncoded true)))))
 
 (defn validate-public-key
   [^bytes key-bytes]
