@@ -5,6 +5,7 @@
             [wallet.segwit-addr :as segaddr]
             [wallet.base58 :as b58]
             [wallet.ecc :as ecc]
+            [wallet.bip341 :as bip341]
             [buddy.core.hash :as hash]
             [clojure.string :as str]
             ;; [wallet.bip39 :as b39]
@@ -129,7 +130,7 @@
                              :else (throw (ex-info "Invalid BECH32 address"
                                                    {:version ver
                                                     :data data})))]
-           `[~ver ~(count data) ~@(vec (byte-array data))]))))
+           `[~updated-ver ~(count data) ~@(vec (byte-array data))]))))
 
 (defn p2sh [script]
   (->P2SH `[0xa9 0x14 ~@(b32/hash160 (:key script)) 0x87]))
@@ -147,6 +148,8 @@
 (defn p2wsh [script]
   (->P2WSH `[0x00 0x20 ~@(hash/sha256 (:key script))]))
 
-(defn p2tr [pubkey]
-
-  (->P2TR [0x51 0x20 pubkey]))
+(defn p2tr [{:keys [key]}]
+  (->P2TR `[0x51 0x20 ~@(-> {:key key}
+                            ecc/make-public-key
+                            bip341/taproot-tweak
+                            :key)]))
