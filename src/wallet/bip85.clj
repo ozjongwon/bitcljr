@@ -1,6 +1,7 @@
 (ns wallet.bip85
   (:require [wallet.bip32 :as b32]
             [wallet.bip39 :as b39]
+            [wallet.bip44 :as b44]
             [wallet.base58 :as b58]
             [wallet.networks :as net]
             [wallet.ecc :as ecc]
@@ -15,9 +16,7 @@
 (defn derive-entropy [root path]
   (let [hardened-path (->> `[83696968 ~@path]
                            (mapv (fn [part]
-                                   (let [hardened (+ part b32/+hardened-index+)]
-                                     (assert (<= b32/+hardened-index+ hardened 0xffffffff))
-                                     hardened))))]
+                                   (b44/harden part))))]
     (-> root
         (b32/path->child hardened-path)
         :key
@@ -33,7 +32,7 @@
    (derive-mnemonic root-key lang-key num-words 0))
   ([root-key lang-key num-words index]
    (assert (contains? #{12 18 24} num-words))
-   (assert (< index b32/+hardened-index+))
+   (assert (not (b44/hardened-index? index)))
    (-> root-key
        (derive-entropy [39 (.indexOf +lang-vector+ lang-key) num-words index])
        (subvec 0 (quot (* num-words 4) 3))

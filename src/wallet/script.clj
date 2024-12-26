@@ -1,8 +1,9 @@
 (ns wallet.script
   (:require [wallet.base58 :as b58]
             [wallet.networks :as net]
-            [wallet.bip32 :as b32] ;; FIXME: hash160
+            [wallet.bip32 :as b32]
             [wallet.segwit-addr :as segaddr]
+            [wallet.util :as util]
             [wallet.base58 :as b58]
             [wallet.ecc :as ecc]
             [wallet.bip341 :as bip341]
@@ -37,7 +38,7 @@
              ~@(-> privkey
                    b32/private-key->public-key
                    :key
-                   b32/hash160)
+                   util/hash160)
              0x88 0xac]))
 
 ;; (p2pkh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
@@ -133,7 +134,7 @@
            `[~updated-ver ~(count data) ~@(vec (byte-array data))]))))
 
 (defn p2sh [script]
-  (->P2SH `[0xa9 0x14 ~@(b32/hash160 (:key script)) 0x87]))
+  (->P2SH `[0xa9 0x14 ~@(util/hash160 (:key script)) 0x87]))
 
 ;; (p2sh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
 
@@ -141,7 +142,7 @@
   (->P2WPKH `[0x00 0x14 ~@(-> privkey
                               b32/private-key->public-key
                               :key
-                              b32/hash160)]))
+                              util/hash160)]))
 
 ;;(p2wpkh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
 

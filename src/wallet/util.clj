@@ -1,4 +1,8 @@
-(ns wallet.util)
+(ns wallet.util
+  (:require [buddy.core.hash :as hash]))
+
+(defn hash160 [x]
+  (-> x hash/sha256 hash/ripemd160))
 
 (defn signed->unsigned [v]
   (bit-and v 0xff))

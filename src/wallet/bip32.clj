@@ -3,6 +3,7 @@
             [buddy.core.mac :as mac]
             [buddy.core.hash :as hash]
             [wallet.base58 :as b58]
+            [wallet.bip44 :as b44]
             [wallet.networks :as net]
             [wallet.ecc :as ecc]
             [wallet.util :as util]
@@ -40,20 +41,6 @@
 
 (defn hardened-index? [i]
   (>= i +hardened-index+))
-
-(defn hash160 [x]
-  (-> x hash/sha256 hash/ripemd160))
-
-(defn parse-path [path]
-  ;; "m/44h/1'/0'/0/32"
-  (let [path-list (str/split path #"/")]
-    (for [i (if (= (first path-list) "m") ; master key?
-              (rest path-list)
-              path-list)
-          :let [hardened? (contains? #{\' \h \H} (last i))]]
-      (if hardened?
-        (-> (subs i 0 (dec (count i))) (Integer/parseInt) (+ +hardened-index+))
-        (Integer/parseInt i)))))
 
 (defprotocol Bip32HDKey
   (make-child-data-bytes [parent index])
@@ -114,7 +101,7 @@
   (let [{:keys [key]} (if (ecc/private-key? ec-key)
                         (private-key->public-key ec-key)
                         ec-key)]
-    (->> key hash160 (take 4) byte-array)))
+    (->> key util/hash160 (take 4) byte-array)))
 
 ;;https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#user-content-Private_parent_key_rarr_private_child_key
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
@@ -135,9 +122,9 @@
                     index)))
 
 (defn path->child [k path]
-  (loop [[idx & more] (if (string? path)
-                        (parse-path path)
-                        path)
+  (loop [[idx & more] (if (vector? path)
+                        path
+                        (-> path b44/parse-path vals))
          parent k]
     (if idx
       (recur more (derive-child parent idx))
