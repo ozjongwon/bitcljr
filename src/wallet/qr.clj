@@ -5,13 +5,14 @@
   (:import [com.github.sarxos.webcam Webcam]
            [com.google.zxing MultiFormatReader BinaryBitmap]
            [com.google.zxing.client.j2se BufferedImageLuminanceSource]
-           [com.google.zxing.common HybridBinarizer BitMatrix]
-           [com.google.zxing.qrcode QRCodeReader]
-           [com.google.zxing.qrcode.decoder Version]
+           [com.google.zxing.common HybridBinarizer]
+           ;;           [com.google.zxing.qrcode QRCodeReader]
+           ;;           [com.google.zxing.qrcode.decoder Version]
            [javax.swing JFrame JLabel ImageIcon]
            [java.awt.image BufferedImage]
            [java.awt Dimension]
-           [java.security MessageDigest]))
+           ;;           [java.security MessageDigest]
+           [com.sparrowwallet.hummingbird URDecoder URDecoder$Result ResultType]))
 
 ;;;
 ;;; QR reading
@@ -66,29 +67,38 @@
 
 (defn scan-qr-code-continuously
   "Continuously scans for QR codes until one is found"
-  []
-  (println "Initializing webcam...")
+  ([]
+   (scan-qr-code-continuously nil))
+  ([ur-decoder]
+   (println "Initializing webcam...")
 
-  (if-let [webcam (init-webcam)]
-    (let [window (create-preview-window)]
-      (try
-        (.open webcam)
-        (println "Scanning for QR code... (Press Ctrl+C to stop)")
-        (loop [image (.getImage webcam)]
-          (update-preview window image)
-          (when (.isVisible (:frame window))
-            (if-let [result (decode-qr-code image)]
-              (do
-                (println "QR Code detected! Content:" result)
-                result)
-              (do
-                (Thread/sleep 100)       ; Small delay to prevent maxing out CPU
-                (recur (.getImage webcam))))))
-        (finally
-          (when (.isOpen webcam)
-            (.close webcam))
-          (cleanup-window window))))
-    (println "No webcam found!")))
+   (if-let [webcam (init-webcam)]
+     (let [window (create-preview-window)]
+       (try
+         (.open webcam)
+         (println "Scanning for QR code... (Press Ctrl+C to stop)")
+         (loop [image (.getImage webcam)]
+           (update-preview window image)
+           (when (.isVisible (:frame window))
+             (if-let [{:keys [str] :as result} (decode-qr-code image)]
+               (do
+                 (println "QR Code detected! Content:" result)
+                 (if ur-decoder
+                   (do
+                     (println "QR Code detected! Content:" str)
+                     (.receivePart ur-decoder str)
+                     (if (.getResult ur-decoder)
+                       ur-decoder
+                       (recur (.getImage webcam))))
+                   result))
+               (do
+                 (Thread/sleep 100)     ; Small delay to prevent maxing out CPU
+                 (recur (.getImage webcam))))))
+         (finally
+           (when (.isOpen webcam)
+             (.close webcam))
+           (cleanup-window window))))
+     (println "No webcam found!"))))
 
 (defn- string->indices [standard-qr-str]
   (for [i (range (int (/ (count standard-qr-str) 4)))
