@@ -11,8 +11,9 @@
                  [com.google.zxing/javase "3.5.2"]
                  [buddy/buddy-hashers "2.0.167"]
                  [dev.weavejester/medley "1.8.1"]
-
-                 [clj-okhttp/clj-okhttp "0.1.3"]
+                 [com.sparrowwallet/hummingbird "1.7.4"]
+                 [camel-snake-kebab "0.4.3"]
+                 ;; [clj-okhttp/clj-okhttp "0.1.3"]
                  ;; [org.clojure/data.json "2.5.0"]
                  ;; [org.clj-commons/gloss "0.3.6"]
                  ;; [ring/ring-core "1.13.0"]
