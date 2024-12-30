@@ -81,16 +81,14 @@
            (update-preview window image)
            (when (.isVisible (:frame window))
              (if-let [{:keys [str] :as result} (decode-qr-code image)]
-               (do
-                 (println "QR Code detected! Content:" result)
-                 (if ur-decoder
-                   (do
-                     (println "QR Code detected! Content:" str)
-                     (.receivePart ur-decoder str)
-                     (if (.getResult ur-decoder)
-                       ur-decoder
-                       (recur (.getImage webcam))))
-                   result))
+               (if ur-decoder
+                 (do
+                   (println "QR Code detected! Content:" str)
+                   (.receivePart ur-decoder str)
+                   (if (.getResult ur-decoder)
+                     ur-decoder
+                     (recur (.getImage webcam))))
+                 result)
                (do
                  (Thread/sleep 100)     ; Small delay to prevent maxing out CPU
                  (recur (.getImage webcam))))))
