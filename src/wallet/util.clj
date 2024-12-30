@@ -4,6 +4,11 @@
 (defn hash160 [x]
   (-> x hash/sha256 hash/ripemd160))
 
+(defn double-sha256 [bytes]
+  (-> bytes
+      hash/sha256
+      hash/sha256))
+
 (defn signed->unsigned [v]
   (bit-and v 0xff))
 

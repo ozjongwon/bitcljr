@@ -4,10 +4,6 @@
             [clojure.string :as str]
             [wallet.util :as util]))
 
-(defn double-sha256 [bytes]
-  (-> bytes
-      hash/sha256
-      hash/sha256))
 
 (defonce +alphabet+ (vec "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"))
 (defonce +ch->idx+ (->> +alphabet+ (map-indexed (fn [idx el]
@@ -83,7 +79,7 @@
 (defn encode-check [in in-key]
   "in-key: #{:str :hex :b64 :b64u :bytes}"
   (let [bytes ((->codecs-fn in-key) in)]
-    (encode (byte-array `[~@bytes ~@(->> bytes double-sha256 (take 4))])
+    (encode (byte-array `[~@bytes ~@(->> bytes util/double-sha256 (take 4))])
             :bytes)))
 
 (defn decode-check [b58-str out-key]
@@ -91,7 +87,7 @@
   (let [b (decode b58-str :bytes)
         checksum (->> b (take-last 4))
         msg-l (->> (drop-last 4 b))
-        actual-checksum (->> msg-l byte-array double-sha256 (take 4))]
+        actual-checksum (->> msg-l byte-array util/double-sha256 (take 4))]
     (if (= checksum actual-checksum)
       ((<-codecs-fn out-key) msg-l)
       (throw (ex-info "Checksum failed" {:expect checksum

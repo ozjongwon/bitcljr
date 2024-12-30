@@ -35,9 +35,14 @@
                (conj back (bit-and i 31))))
       `[~@front 0 ~@back])))
 
-(defn verify-checksum [hrp data enc-k]
-  (= (polymod (into (expand-human-readable-part hrp) data))
-     (get +encoding-consts+ enc-k)))
+(defn verify-checksum
+  ([data enc-k]
+   (verify-checksum nil data enc-k))
+  ([hrp data enc-k]
+   (= (polymod (into (if hrp
+                       (expand-human-readable-part hrp)
+                       []) data))
+      (get +encoding-consts+ enc-k))))
 
 (defn create-checksum [hrp data enc-k]
   (let [pmod (-> `[~@(expand-human-readable-part hrp) ~@data 0 0 0 0 0 0]
@@ -86,8 +91,8 @@
 
      (when-not (and (int? pos1)
                     (<= 1 pos1 (+ pos1 7) bech-size 90))
-       (throw (ex-info "Invalid sperator position '1'" {:position-1 pos1
-                                                        :bech-size bech-size})))
+       (throw (ex-info "Invalid seperator position '1'" {:position-1 pos1
+                                                         :bech-size bech-size})))
      (let [hrp (subs lower-bech-str 0 pos1)
            decoded-data (mapv #(str/index-of +charset+ %) (subs lower-bech-str (inc pos1)))]
        (when-not (every? identity decoded-data)
@@ -99,3 +104,47 @@
                                                       :enc enc-k})))
        [(subs lower-bech-str 0 pos1) ;; hrp
         (subvec decoded-data 0 (- (count decoded-data) 6))]))))
+
+(defn decode
+  ([bech-str]
+   (try (->> (decode bech-str :bech32)
+             (cons :bech32))
+        (catch Exception _
+          (->> (decode bech-str :bech32m)
+               (cons :bech32m)))))
+  ([bech-str enc-k]
+   (decode bech-str enc-k true))
+  ([bech-str enc-k seperator1?]
+   (when-not (every? #(<= 33 (int %) 126) bech-str)
+     (throw (ex-info "Invalid character out of range" {:bech-str  bech-str})))
+   (let [lower-bech-str (str/lower-case bech-str)
+         ;;
+         bech-size (count bech-str)]
+     (when-not (or (= lower-bech-str bech-str)
+                   (= (str/upper-case bech-str) bech-str))
+       (throw (ex-info "Invalid mixed lowercase and uppercase" {:bech-str bech-str})))
+
+     (if seperator1?
+       (let [pos1 (str/last-index-of bech-str "1")
+             _      (when-not (and (int? pos1)
+                                   (<= 1 pos1 (+ pos1 7) bech-size 90))
+                      (throw (ex-info "Invalid seperator position '1'" {:position-1 pos1
+                                                                        :bech-size bech-size})))
+             hrp (subs lower-bech-str 0 pos1)
+             decoded-data (mapv #(str/index-of +charset+ %) (subs lower-bech-str (inc pos1)))]
+         (when-not (every? identity decoded-data)
+           (throw (ex-info "Invalid characters in 'data'" {:position-1 pos1
+                                                           :data (subs bech-str (inc pos1))})))
+         (when-not (verify-checksum hrp decoded-data enc-k)
+           (throw (ex-info "Verifying checksum failed" {:hrp hrp
+                                                        :data (subs bech-str (inc pos1))
+                                                        :enc enc-k})))
+         [(subs lower-bech-str 0 pos1) ;; hrp
+          (subvec decoded-data 0 (- (count decoded-data) 6))])
+       (let [decoded-data (mapv #(if-let [i (str/index-of +charset+ %)]
+                                   i
+                                   (println "*** MIssing" %)) lower-bech-str)]
+         (if (verify-checksum decoded-data enc-k)
+           decoded-data
+           (throw (ex-info "Verifying checksum failed" {:data bech-str
+                                                        :enc enc-k}))))))))
