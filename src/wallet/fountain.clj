@@ -14,7 +14,7 @@
   (long-jump [this])
   (next-state [this]))
 
-(defonce +mask64+ (BigInteger. "FFFFFFFFFFFFFFFF" 16))
+(defonce +mask64+ (BigInteger. (apply str (repeat 16 \f)) 16))
 
 (defn- rotate-left [x k]
   (let [k (mod k 64)]
@@ -34,12 +34,14 @@
                            (rotate-left 7)
                            (.multiply (biginteger 9))
                            (.and +mask64+))
-                t (-> s1 (.shiftLeft 17) (.and +mask64+))
+                t (.shiftLeft s1 17)
                 s2 (.xor s2 s0)
                 s3 (.xor s3 s1)]
             [result
-             (assoc this :state [(.xor s0 s3) (.xor s1 s2)
-                                 (.xor s2 t) (-> s3 (rotate-left 45) (.and +mask64+))])]))))
+             (->> [(.xor s0 s3) (.xor s1 s2)
+                   (.xor s2 t) (rotate-left s3 45)]
+                  (mapv #(.and % +mask64+))
+                  (assoc this :state ))]))))
 
 (defn make-xoshiro256** [seed]
   (condp = (type seed)
