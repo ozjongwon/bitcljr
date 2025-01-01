@@ -1,6 +1,6 @@
 ;; https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-005-ur.md
-(ns wallet.ur
-  (:require [wallet.qr :as qr]
+(ns bitclojr.ur
+  (:require [bitclojr.qr :as qr]
             [camel-snake-kebab.core :as csk]
             ;; [clojure.string :as str]
             ;; [clojure.edn :as edn]

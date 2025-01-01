@@ -1,6 +1,6 @@
-(ns wallet.segwit-addr-test
+(ns bitclojr.segwit-addr-test
   (:require [clojure.test :refer :all]
-            [wallet.segwit-addr :refer :all]
+            [bitclojr.segwit-addr :refer :all]
             [clojure.string :as str]))
 
 (defonce +valid-addr-hex+

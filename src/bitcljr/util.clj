@@ -1,4 +1,4 @@
-(ns wallet.util
+(ns bitclojr.util
   (:require [buddy.core.hash :as hash]))
 
 (defn hash160 [x]

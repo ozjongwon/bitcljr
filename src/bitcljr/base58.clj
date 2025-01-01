@@ -1,8 +1,8 @@
-(ns wallet.base58
+(ns bitclojr.base58
   (:require [buddy.core.hash :as hash]
             [buddy.core.codecs :as codecs]
             [clojure.string :as str]
-            [wallet.util :as util]))
+            [bitclojr.util :as util]))
 
 
 (defonce +alphabet+ (vec "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"))

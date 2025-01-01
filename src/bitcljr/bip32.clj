@@ -1,12 +1,12 @@
-(ns wallet.bip32
+(ns bitclojr.bip32
   (:require [clojure.string :as str]
             [buddy.core.mac :as mac]
             [buddy.core.hash :as hash]
-            [wallet.base58 :as b58]
-            [wallet.bip44 :as b44]
-            [wallet.networks :as net]
-            [wallet.ecc :as ecc]
-            [wallet.util :as util]
+            [bitclojr.base58 :as b58]
+            [bitclojr.bip44 :as b44]
+            [bitclojr.networks :as net]
+            [bitclojr.ecc :as ecc]
+            [bitclojr.util :as util]
             [buddy.core.codecs :as codecs])
   (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
            [org.bouncycastle.crypto.ec CustomNamedCurves]))
@@ -46,7 +46,7 @@
   (make-child-data-bytes [parent index])
   (make-hd-key [parent raw-bytes]))
 
-(extend-type wallet.ecc.PrivateKey
+(extend-type bitclojr.ecc.PrivateKey
   Bip32HDKey
   (make-child-data-bytes [{:keys [key]} index]
     ;; only hardened or not matters, not public/private
@@ -63,7 +63,7 @@
          (.mod (.add (BigInteger. 1 key) (BigInteger. 1 secret)))
          .toByteArray)))
 
-(extend-type wallet.ecc.PublicKey
+(extend-type bitclojr.ecc.PublicKey
   Bip32HDKey
   (make-child-data-bytes [{:keys [key] :as parent} index]
     (when (hardened-index? index)

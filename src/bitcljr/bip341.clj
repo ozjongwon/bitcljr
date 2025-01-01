@@ -1,10 +1,10 @@
-(ns wallet.bip341
+(ns bitclojr.bip341
   (:require [clojure.string :as str]
             [buddy.core.mac :as mac]
             [buddy.core.hash :as hash]
-            [wallet.base58 :as b58]
-            [wallet.networks :as net]
-            [wallet.ecc :as ecc]
+            [bitclojr.base58 :as b58]
+            [bitclojr.networks :as net]
+            [bitclojr.ecc :as ecc]
             [buddy.core.codecs :as codecs])
   (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
            [org.bouncycastle.crypto.ec CustomNamedCurves]))
@@ -25,7 +25,7 @@
         rest
         (#(ecc/make-public-key {:key %})))))
 
-(extend-type wallet.ecc.PrivateKey
+(extend-type bitclojr.ecc.PrivateKey
   Bip341Taproot
   (taproot-tweak
     ([this]
@@ -34,7 +34,7 @@
      ;; FIXME: not 100% sure
      (%taproot-tweak key h))))
 
-(extend-type wallet.ecc.PublicKey
+(extend-type bitclojr.ecc.PublicKey
   Bip341Taproot
   (taproot-tweak
     ([this]

@@ -1,4 +1,4 @@
-(ns wallet.bech32
+(ns bitclojr.bech32
   (:require [clojure.string :as str]
             [buddy.core.hash :as hash]
             [buddy.core.codecs :as codecs]))

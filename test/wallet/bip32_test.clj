@@ -1,10 +1,10 @@
-(ns wallet.bip32-test
+(ns bitclojr.bip32-test
   (:require [clojure.test :refer :all]
-            [wallet.bip32 :refer :all]
-            [wallet.base58 :as b58]
-            [wallet.bip44 :as b44]
-            [wallet.bip39 :as b39]
-            [wallet.ecc :as ecc]
+            [bitclojr.bip32 :refer :all]
+            [bitclojr.base58 :as b58]
+            [bitclojr.bip44 :as b44]
+            [bitclojr.bip39 :as b39]
+            [bitclojr.ecc :as ecc]
             [clojure.string :as str]
             [buddy.core.codecs :as codecs]))
 

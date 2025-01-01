@@ -1,6 +1,6 @@
 ;; https://github.com/spesmilo/electrum/blob/master/electrum/servers.json
 
-(ns wallet.tor
+(ns bitclojr.tor
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.string :as str]

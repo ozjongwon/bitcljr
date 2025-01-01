@@ -1,7 +1,7 @@
-(ns wallet.seed
-  (:require [wallet.qr :as qr]
-            [wallet.bip39 :as b39]
-            [wallet.bip32 :as b32]))
+(ns bitclojr.seed
+  (:require [bitclojr.qr :as qr]
+            [bitclojr.bip39 :as b39]
+            [bitclojr.bip32 :as b32]))
 
 (defn qr->seed
   ([]

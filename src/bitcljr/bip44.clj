@@ -1,12 +1,12 @@
-(ns wallet.bip44
+(ns bitclojr.bip44
   (:require [clojure.string :as str]
             [buddy.core.mac :as mac]
             [buddy.core.hash :as hash]
-            [wallet.base58 :as b58]
-            [wallet.bip39 :as b39]
-            [wallet.networks :as net]
-            [wallet.ecc :as ecc]
-            [wallet.util :as util]
+            [bitclojr.base58 :as b58]
+            [bitclojr.bip39 :as b39]
+            [bitclojr.networks :as net]
+            [bitclojr.ecc :as ecc]
+            [bitclojr.util :as util]
             [buddy.core.codecs :as codecs])
   (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
            [org.bouncycastle.crypto.ec CustomNamedCurves]))

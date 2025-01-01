@@ -1,8 +1,8 @@
-(ns wallet.script-test
+(ns bitclojr.script-test
   (:require [clojure.test :refer :all]
-            [wallet.bip32 :as b32]
-            [wallet.script :refer :all]
-            [wallet.ecc :as ecc]))
+            [bitclojr.bip32 :as b32]
+            [bitclojr.script :refer :all]
+            [bitclojr.ecc :as ecc]))
 
 (deftest script-test
   (testing "from address"

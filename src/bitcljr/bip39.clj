@@ -1,4 +1,4 @@
-(ns wallet.bip39
+(ns bitclojr.bip39
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [buddy.core.hash :as hash]

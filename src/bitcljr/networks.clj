@@ -1,10 +1,10 @@
-(ns wallet.networks
+(ns bitclojr.networks
   (:require [clojure.java.io :as io]
             [buddy.core.hash :as hash]
             [buddy.core.kdf :as kdf]
             [buddy.core.codecs :as codecs]
             [buddy.core.mac :as mac]
-            [wallet.base58 :as b58])
+            [bitclojr.base58 :as b58])
   (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
            [org.bouncycastle.crypto.ec CustomNamedCurves]
            [org.bouncycastle.asn1.sec SECNamedCurves]

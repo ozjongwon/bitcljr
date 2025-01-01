@@ -1,6 +1,6 @@
-(ns wallet.core-test
+(ns bitclojr.core-test
   (:require [clojure.test :refer :all]
-            [wallet.core :refer :all]))
+            [bitclojr.core :refer :all]))
 
 (deftest a-test
   (testing "FIXME, I fail."

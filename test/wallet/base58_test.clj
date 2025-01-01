@@ -1,7 +1,7 @@
-(ns wallet.base58-test
+(ns bitclojr.base58-test
   (:require [clojure.test :refer :all]
-            [wallet.base58 :refer :all]
-            [wallet.util :refer :all]
+            [bitclojr.base58 :refer :all]
+            [bitclojr.util :refer :all]
             [buddy.core.codecs :as codecs]
             [clojure.string :as str]))
 

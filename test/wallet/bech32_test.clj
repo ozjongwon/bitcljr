@@ -1,6 +1,6 @@
-(ns wallet.bech32-test
+(ns bitclojr.bech32-test
   (:require [clojure.test :refer :all]
-            [wallet.bech32 :refer :all]
+            [bitclojr.bech32 :refer :all]
             [clojure.string :as str]))
 
 

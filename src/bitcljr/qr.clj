@@ -1,7 +1,7 @@
-(ns wallet.qr
+(ns bitclojr.qr
   (:require [clojure.java.io :as io]
-            [wallet.base58 :as b58]
-            [wallet.bip39 :as b39])
+            [bitclojr.base58 :as b58]
+            [bitclojr.bip39 :as b39])
   (:import [com.github.sarxos.webcam Webcam]
            [com.google.zxing MultiFormatReader BinaryBitmap]
            [com.google.zxing.client.j2se BufferedImageLuminanceSource]

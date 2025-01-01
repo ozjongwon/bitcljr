@@ -1,4 +1,4 @@
-(defproject wallet "0.1.0-SNAPSHOT"
+(defproject bitclojr "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -22,4 +22,4 @@
                  ]
   ;; pushd ~/Work/aleph; rm -rf ~/.m2/repository/aleph/; lein pom; lein jar; lein install
 
-  :repl-options {:init-ns wallet.core})
+  :repl-options {:init-ns bitclojr.core})

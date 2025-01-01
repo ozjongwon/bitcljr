@@ -1,6 +1,6 @@
-(ns wallet.segwit-addr
+(ns bitclojr.segwit-addr
   (:require [clojure.string :as str]
-            [wallet.bech32 :as bc32]))
+            [bitclojr.bech32 :as bc32]))
 
 (defprotocol MergeSplit
   (bit-merge [this bits])

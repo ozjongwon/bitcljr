@@ -1,5 +1,5 @@
-(ns wallet.ecc
-  (:require [wallet.util :as util])
+(ns bitclojr.ecc
+  (:require [bitclojr.util :as util])
   (:import [org.bouncycastle.crypto.params ECPrivateKeyParameters ECDomainParameters]
            [org.bouncycastle.crypto.ec CustomNamedCurves])  )
 

@@ -1,10 +1,10 @@
-(ns wallet.bip85
-  (:require [wallet.bip32 :as b32]
-            [wallet.bip39 :as b39]
-            [wallet.bip44 :as b44]
-            [wallet.base58 :as b58]
-            [wallet.networks :as net]
-            [wallet.ecc :as ecc]
+(ns bitclojr.bip85
+  (:require [bitclojr.bip32 :as b32]
+            [bitclojr.bip39 :as b39]
+            [bitclojr.bip44 :as b44]
+            [bitclojr.base58 :as b58]
+            [bitclojr.networks :as net]
+            [bitclojr.ecc :as ecc]
             [buddy.core.crypto :as crypto]
             [buddy.core.mac :as mac]
             [buddy.core.codecs :as codecs]))
