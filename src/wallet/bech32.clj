@@ -143,7 +143,7 @@
           (subvec decoded-data 0 (- (count decoded-data) 6))])
        (let [decoded-data (mapv #(if-let [i (str/index-of +charset+ %)]
                                    i
-                                   (println "*** MIssing" %)) lower-bech-str)]
+                                   (println "*** Missing" %)) lower-bech-str)]
          (if (verify-checksum decoded-data enc-k)
            decoded-data
            (throw (ex-info "Verifying checksum failed" {:data bech-str
