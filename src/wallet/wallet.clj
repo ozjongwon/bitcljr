@@ -71,6 +71,7 @@
                       :declaring-class
                       com.sparrowwallet.hummingbird.registry.ScriptExpression}]}]})
 
+#_
 (defn ur-account->wallet [ur-account]
   ;; Only support 84'(wpkh) and 48'(wsh)
   (let [{:keys [master-fingerprint output-descriptors]} ur-account
@@ -189,178 +190,41 @@
 
 
   )
+
+(defn ur-account->wallet [{:keys [root-fingerprint chain-code key parent-fingerprint
+                                  depth path script] :as ur-account}]
+  ;; Only support 84'(wpkh) and 48'(wsh)
+  ;; FIXME: cleanup fn args bytes vs integer, etc
+
+  ;; version: path 84 == single-sig, 48 == multi-sig
+  ;;          xpub is for inglegacy(P2PKH) and wrapped SegWit(P2SH-P2WPKH)
+  (let [key-bytes (codecs/hex->bytes key)
+        chain-code-bytes (codecs/hex->bytes chain-code)
+        fingerprint-bytes (codecs/hex->bytes parent-fingerprint)
+        child-index (-> path b44/parse-path b44/path->vector last)
+        xpub (ecc/make-public-key {:key key-bytes
+                                   :chain-code chain-code-bytes
+                                   :version (get-in net/+networks+ ["main" "xpub"])
+                                   :fingerprint fingerprint-bytes
+                                   :depth depth
+                                   :child-index child-index})
+        Zpub (ecc/make-public-key {:key key-bytes
+                                   :chain-code chain-code-bytes
+                                   :version (get-in net/+networks+ ["main" "Zpub"])
+                                   :fingerprint fingerprint-bytes
+                                   :depth depth
+                                   :child-index child-index})]
+    (map->KeyStore {:label "fixme"
+                    :xpub {:xpub (b32/encode-hd-key xpub)
+                           :Zpub (b32/encode-hd-key Zpub)}
+                    :root-fingerprint root-fingerprint
+                    :derivation path})))
 #_
-(ur-account->wallet {:master-fingerprint "f5e6bdf3",
-                     :output-descriptors
-                     [{:hd-key
-                       {:chain-code
-                        "9b9a8620e9e35b73fb9c3289385ada9c97c5f9fe5cd6c6bf78cfb26e8d25bcf4",
-                        :parent-fingerprint "bbc46130",
-                        :key "030c2055fce55727b7f7274ce4b8cbe6283c093e319e672967b1d57b3db3ca0c42",
-                        :origin
-                        {:source-fingerprint "f5e6bdf3",
-                         :depth 4,
-                         :path "48'/0'/0'/2'",
-                         :components [{:index 48} {:index 0} {:index 0} {:index 2}]}},
-                       :script-expressions
-                       [{:tag-value 401,
-                         :expression "wsh",
-                         :declaring-class
-                         com.sparrowwallet.hummingbird.registry.ScriptExpression}]}]})
-
-(let [chain-code (codecs/hex->bytes "9b9a8620e9e35b73fb9c3289385ada9c97c5f9fe5cd6c6bf78cfb26e8d25bcf4"),
-      key (codecs/hex->bytes "030c2055fce55727b7f7274ce4b8cbe6283c093e319e672967b1d57b3db3ca0c42")
-      fingerprint (codecs/hex->bytes "bbc46130") ;; parent fingerprint
-      path (b44/path->vector (b44/parse-path "m/48'/0'/0'/2'"))
-      depth (count path)
-      child-index (last path)
-      _ (println "***" path depth child-index)
-      xpub (ecc/make-public-key {:key key
-                                 :chain-code chain-code
-                                 :version (get-in net/+networks+ ["main" "xpub"])
-                                 :fingerprint  fingerprint
-                                 :depth depth
-                                 :child-index child-index})
-      zpub (ecc/make-public-key {:key key
-                                 :chain-code chain-code
-                                 :version (get-in net/+networks+ ["main" "zpub"])
-                                 :fingerprint fingerprint
-                                 :depth depth
-                                 :child-index child-index})]
-  (println "****" (codecs/bytes->hex fingerprint))
-  {:xpub (b32/encode-hd-key xpub)
-   :zpub (b32/encode-hd-key zpub)})
-(ur-account->wallet {:master-fingerprint "f5e6bdf3",
-                     :output-descriptors
-                     [{:hd-key
-                       {:chain-code
-
-                        :parent-fingerprint "bbc46130",
-                        :key ,
-                        :origin
-                        {:source-fingerprint "f5e6bdf3",
-                         :depth 4,
-                         :path "48'/0'/0'/2'",
-                         :components [{:index 48} {:index 0} {:index 0} {:index 2}]}},
-                       :script-expressions
-                       [{:tag-value 401,
-                         :expression "wsh",
-                         :declaring-class
-                         com.sparrowwallet.hummingbird.registry.ScriptExpression}]}]})
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defprotocol HWWalletAPI
-  (xpub [this]
-    ;; return master public key for SW wallet
-    )
-
-  (derive-child-key [this derivation-path]
-    ;; for private keys to sign
-    )
-
-  (tx-details [this tx]
-    ;; before signing details
-    )
-  (sign-tx [this tx])
-
-  (get-info [this]
-    ;; model, version, etc
-    ))
-;;;
-;;; the master private key -> get-xpub -> recieve addresses
-;;;
-
-#_
-(defprotocol SWWalletAPI
-  SWWalletAPI
-  (xpub [this]
-    ;; return master public key in the SW wallet
-    )
-
-  (derive-child-key [this derivation-path]
-    ;; receive addreses
-    )
-
-  (generate-address [this address-type]
-    ;; :p2wpkh p2tr m/48/0/0/0 or m/48/0/0/1
-    )
-
-  (create-tx-proposal [this inputs outputs]
-    ;; return  unsigned tx
-    )
-
-  (broadcast-tx [this signed-transaction]
-    ;;return tx hash(txid)
-    )
-  (get-info [this]
-    ;; balance, pub keys(receive & utxo), # used addresses, etc
-    )
-
-  (get-master-fingerprint [this]
-    ;; xpub
-    )
-
-  (get-balance [this]
-    ;; xpub
-    )
-
-  (get-transaction-history [this]
-    ;; txid, amount, time
-    ))
-
-#_
-(defrecord HWWallet [name master-private-key]
-  WalletAPI
-  (generate-key-pair [this derivation-path]
-    ;; using derivation path
-    )
-  (derive-child-key [this derivation-path]
-    ;; 32/44/84
-    )
-  (get-receive-address [this derivation-path]
-    ;; 32/44/84
-    )
-  )
-
-(comment
-
-;;;;
-;;;;
-
-;;;;;;;;;;;;;;;;;;;;
-  ;; 1. Seed + Passphrase from storage (encrypted)
-  ;; 2. Derive xpub & master fingerprint
-
-  (def seed (-> "rice doll mixture lobster direct orange fabric merge canyon cereal either review"
-                (b39/mnemonic->seed "Hello World!")))
-
-  (def qr-scan-cbor "LPCSECAACSJKCYNDIDCYTLHDCABSTPLRKOVOSAJEIHBTZEDEEYPARPAMBSGEBZFHLBCXBAWDIYRHKGSAFYLFMEBEKBBG")
-
-  ;;"UR:CRYPTO-ACCOUNT/53-4/LPCSECAACSJKCYNDIDCYTLHDCABSTPLRKOVOSAJEIHBTZEDEEYPARPAMBSGEBZFHLBCXBAWDIYRHKGSAFYLFMEBEKBBG"
-
-  ;; **** CRYPTO-ACCOUNT -> ACCOUNT-UR =>>> URDecoder
-  ;;      CRYPTO-PSBT -> PSBT-UR2      =>>> URDecoder
-  ;;
-
-  "p(\\d+)of(\\d+) (.+)"
-  (b32/decode "LPCSECAACSJKCYNDIDCYTLHDCABSTPLRKOVOSAJEIHBTZEDEEYPARPAMBSGEBZFHLBCXBAWDIYRHKGSAFYLFMEBEKBBG")
-
-
-  (-> "rice doll mixture lobster direct orange fabric merge canyon cereal either review"
-      (b39/mnemonic->seed "Hello World!")
-      codecs/hex->bytes
-      b32/seed->hd-key
-      b32/ec-key->fingerprint
-      codecs/bytes->hex
-      )
-
-  (-> "rice doll mixture lobster direct orange fabric merge canyon cereal either review"
-      (b39/mnemonic->seed "Hello World!")
-      codecs/hex->bytes
-      b32/seed->hd-key
-      (b32/path->child "m/84'/0'/0'") ;; P2WPKH == 84
-      (b32/private-key->public-key)
-      b32/encode-hd-key
-      (= "xpub6CJTXjz9EUoar7X28ZnYayRQrQzVnMoiE8KisZHbKPcugTaU3DKpLqj7oQCeaBUDoTqFjcVoDFih9N84WKzocwapHiGdRN3bp4ZV3ywHHy8"))
-
-  )
+(ur-account->wallet {:root-fingerprint "431e99fd",
+                     :chain-code
+                     "0a6d300fe01b0f5f8ffc59f3aa7132453d374cf806c9610319242bbf43dc7ba7",
+                     :parent-fingerprint "376754e8",
+                     :key "0305db93c49e311ada73fd58611b4cf76340a3223cbce4ac42f6db924d5f73c5b4",
+                     :depth 3,
+                     :path "m/84'/0'/0'",
+                     :script "wpkh"})
