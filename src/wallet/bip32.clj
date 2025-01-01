@@ -205,6 +205,7 @@
                (throw (ex-info "Invalid master key depth with child index" {:child-index index-int})))
         ((case vprefix
            "xprv" ecc/make-private-key
-           "xpub" ecc/make-public-key)
+           ;; Only support xpub & Zpub
+           ("Zpub" "xpub") ecc/make-public-key)
          raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) depth-int index-int))
       (throw (ex-info "Unknown version" {:version (subs hd-key-str 0 4)})))))
