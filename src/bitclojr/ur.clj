@@ -98,13 +98,6 @@
 (defn invoke-getter [obj getter]
   (.invoke getter obj nil))
 
-(defn ->clj [ur-inst]
-  (-> (into {}
-            (for [[clj-name getter] (get-ur-public-getters (type ur-inst))
-                  :let [v (recursively-process-ur-value (invoke-getter ur-inst getter))]
-                  :when v]
-              [clj-name v]))
-      ur->clj))
 
 (defn recursively-process-ur-value [ur-inst]
   (cond (bytes? ur-inst) (codecs/bytes->hex ur-inst)
@@ -117,6 +110,14 @@
         (->clj ur-inst)
 
         :else ur-inst))
+
+(defn ->clj [ur-inst]
+  (-> (into {}
+            (for [[clj-name getter] (get-ur-public-getters (type ur-inst))
+                  :let [v (recursively-process-ur-value (invoke-getter ur-inst getter))]
+                  :when v]
+              [clj-name v]))
+      ur->clj))
 
 (defn qr->ur []
   (println "Scanning...")
