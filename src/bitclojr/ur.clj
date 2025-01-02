@@ -98,6 +98,7 @@
 (defn invoke-getter [obj getter]
   (.invoke getter obj nil))
 
+(declare ->clj)
 
 (defn recursively-process-ur-value [ur-inst]
   (cond (bytes? ur-inst) (codecs/bytes->hex ur-inst)
