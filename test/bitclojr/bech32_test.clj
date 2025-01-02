@@ -27,32 +27,32 @@
    [(str (char 0x7f) "1axkwrx") "Invalid character out of range"]
    [(str (char 0x80) "1eym55h") "Invalid character out of range"]
    ["an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx"
-    "Invalid sperator position '1'"]
-   ["pzry9x0s0muk" "Invalid sperator position '1'"]
-   ["1pzry9x0s0muk" "Invalid sperator position '1'"]
+    "Invalid seperator position '1'"]
+   ["pzry9x0s0muk" "Invalid seperator position '1'"]
+   ["1pzry9x0s0muk" "Invalid seperator position '1'"]
    ["x1b4n0q5v" "Invalid characters in 'data'"]
-   ["li1dgmt3" "Invalid sperator position '1'"]
+   ["li1dgmt3" "Invalid seperator position '1'"]
    [(str "de1lg7wt" (char 0xff)) "Invalid character out of range"]
    ["A1G7SGD8" "Verifying checksum failed"]
-   ["10a06t8" "Invalid sperator position '1'"]
-   ["1qzzfhee" "Invalid sperator position '1'"]])
+   ["10a06t8" "Invalid seperator position '1'"]
+   ["1qzzfhee" "Invalid seperator position '1'"]])
 
 (def +invalid-checksum-bech32m+
   [[" 1xj0phk" "Invalid character out of range"]
    [(str (char 0x7f) "1g6xzxy") "Invalid character out of range"]
    [(str (char 0x80) "1vctc34") "Invalid character out of range"]
    ["an84characterslonghumanreadablepartthatcontainsthetheexcludedcharactersbioandnumber11d6pts4"
-    "Invalid sperator position '1'"]
-   ["qyrz8wqd2c9m" "Invalid sperator position '1'"]
-   ["1qyrz8wqd2c9m" "Invalid sperator position '1'"]
+    "Invalid seperator position '1'"]
+   ["qyrz8wqd2c9m" "Invalid seperator position '1'"]
+   ["1qyrz8wqd2c9m" "Invalid seperator position '1'"]
    ["y1b0jsk6g" "Invalid characters in 'data'"]
    ["lt1igcx5c0" "Invalid characters in 'data'"]
-   ["in1muywd" "Invalid sperator position '1'"]
+   ["in1muywd" "Invalid seperator position '1'"]
    ["mm1crxm3i" "Invalid characters in 'data'"]
    ["au1s5cgom" "Invalid characters in 'data'"]
    ["M1VUXWEZ" "Verifying checksum failed"]
-   ["16plkw9" "Invalid sperator position '1'"]
-   ["1p2gdwpf" "Invalid sperator position '1'"]])
+   ["16plkw9" "Invalid seperator position '1'"]
+   ["1p2gdwpf" "Invalid seperator position '1'"]])
 
 (deftest valid-bech-checksum
   (testing "Valid bech32"
