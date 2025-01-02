@@ -24,18 +24,16 @@
 (defn- ->codecs-fn [in]
   (if (= in :bytes)
     identity
-    (->> "->bytes"
-         (str "codecs/"(name in))
-         symbol
-         resolve)))
+    (case in
+      :hex codecs/hex->bytes
+      :str codecs/str->bytes)))
 
 (defn- <-codecs-fn [out]
   (comp
-   (if (= out :bytes)
-     identity
-     (->> (str "codecs/bytes->"(name out))
-          symbol
-          resolve))
+   (case out
+     :bytes identity
+     :hex codecs/bytes->hex
+     :str codecs/bytes->str)
    byte-array))
 
 (defn encode
