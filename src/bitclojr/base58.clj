@@ -67,7 +67,7 @@
          :else
          (loop [i (bigint 1) j (count b58-str) result 0]
            (if (pos? j)
-             (recur (* i 58) (dec j) (+ result ^long (* (b58-alpha->idx (get b58-str (dec j))) i)))
+             (recur (* i 58) (dec j) (+ result ^Long (* (b58-alpha->idx (get b58-str (dec j))) i)))
              (let [maybe-signed-bytes (-> result biginteger .toByteArray)
                    result-bytes (if (zero? (first maybe-signed-bytes))
                                   (java.util.Arrays/copyOfRange maybe-signed-bytes 1 (count maybe-signed-bytes))
