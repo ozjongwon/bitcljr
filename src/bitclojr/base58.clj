@@ -40,7 +40,7 @@
 
 (defn encode
   ([in]
-   (encode :hex))
+   (encode in :hex))
   ([in in-key]
    ;;   "in-key: #{:str :hex :b64 :b64u :byte}
    "in-key: #{:str :hex :b64 :b64u :bytes}"
@@ -76,11 +76,14 @@
                    count0 (count (take-while #(= 0 %) result-bytes))]
                (into (vec (repeat (- count1 count0) 0)) result-bytes)))))))
 
-(defn encode-check [in in-key]
-  "in-key: #{:str :hex :b64 :b64u :bytes}"
-  (let [bytes ((->codecs-fn in-key) in)]
-    (encode (byte-array `[~@bytes ~@(->> bytes util/double-sha256 (take 4))])
-            :bytes)))
+(defn encode-check
+  ([in]
+   (encode-check in :hex))
+  ([in in-key]
+   "in-key: #{:str :hex :b64 :b64u :bytes}"
+   (let [bytes ((->codecs-fn in-key) in)]
+     (encode (byte-array `[~@bytes ~@(->> bytes util/double-sha256 (take 4))])
+             :bytes))))
 
 (defn decode-check [b58-str out-key]
   "out-key: #{:str :hex :b64 :b64u :long :b64-str :bytes}"

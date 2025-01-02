@@ -36,24 +36,24 @@
 
 (deftest boundary-values
   (testing "Boundary values"
-    (is (= "5Q" (-> [0xff] byte-array (encode :bytes))))
-    (is (= [0xff] (-> [0xff] byte-array (encode :bytes) (decode :bytes) (#(mapv signed->unsigned %)))))
-    (is (= "VrZDWwe" (-> [0xff] byte-array (encode-check :bytes))))
-    (is (= [0xff] (-> [0xff] byte-array (encode-check :bytes) (decode-check :bytes) (#(mapv signed->unsigned %)))))))
+    (is (= "5Q" (encode "ff")))
+    (is (= [0xff] (->  (encode "ff") (decode :bytes) (#(mapv signed->unsigned %)))))
+    (is (= "VrZDWwe" (encode-check "ff")))
+    (is (= [0xff] (-> (encode-check "ff") (decode-check :bytes) (#(mapv signed->unsigned %)))))))
 
 (deftest alternating-bytes
   (testing "Alternating bytes"
-    (is (= "7X4BGT" (-> [0xff 0 0xff 0] byte-array (encode :bytes))))
-    (is (= [0xff 0 0xff 0] (-> [0xff 0 0xff 0] byte-array (encode :bytes) (decode :bytes) (#(mapv signed->unsigned %)))))
-    (is (= "jeriXwYhkjo" (-> [0xff 0 0xff 0] byte-array (encode-check :bytes))))
-    (is (= [0xff 0 0xff 0] (-> [0xff 0 0xff 0] byte-array (encode-check :bytes) (decode-check :bytes)  (#(mapv signed->unsigned %)))))))
+    (is (= "7X4BGT"  (encode "ff00ff00")))
+    (is (= [0xff 0 0xff 0] (-> (encode "ff00ff00") (decode :bytes) (#(mapv signed->unsigned %)))))
+    (is (= "jeriXwYhkjo" (encode-check "ff00ff00")))
+    (is (= [0xff 0 0xff 0] (-> (encode-check "ff00ff00") (decode-check :bytes)  (#(mapv signed->unsigned %)))))))
 
 (deftest minimal-input
   (testing "Minimal input"
-    (is (= "1" (-> [0] byte-array (encode :bytes))))
-    (is (= [0] (-> [0] byte-array (encode :bytes) (decode :bytes) vec)))
-    (is (= "1Wh4bh" (-> [0] byte-array (encode-check :bytes))))
-    (is (= [0] (-> [0] byte-array (encode-check :bytes) (decode-check :bytes) vec)))
+    (is (= "1" (encode "00")))
+    (is (= [0] (-> (encode "00") (decode :bytes) vec)))
+    (is (= "1Wh4bh" (encode-check "00")))
+    (is (= [0] (-> (encode-check "00") (decode-check :bytes) vec)))
     (is (= "2g" (encode "a" :str)))
     (is (= "a" (-> (encode "a" :str) (decode :str))))
     (is (= "a" (-> (encode-check "a" :str) (decode-check :str))))))
