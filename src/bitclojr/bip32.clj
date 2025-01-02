@@ -21,13 +21,12 @@
                               :version (get-in net/+networks+ ["main" "xpub"]))))
 
 (defn seed->hd-key
-  "Creates a root private key from 64-byte seed
-   seed: byte array of exactly 64 bytes
-   version: (optional) network version bytes, defaults to mainnet xprv"
-  ([seed]
-   (seed->hd-key seed (get-in net/+networks+ ["main" "xprv"])))
-  ([seed version] ;; Generate HMAC-SHA512 of the seed
-   (let [raw (mac/hash seed {:key "Bitcoin seed" :alg :hmac+sha512})
+  ([hex-seed]
+   (seed->hd-key hex-seed (get-in net/+networks+ ["main" "xprv"])))
+  ([hex-seed version] ;; Generate HMAC-SHA512 of the seed
+   (let [raw (-> hex-seed
+                 codecs/hex->bytes
+                 (mac/hash {:key "Bitcoin seed" :alg :hmac+sha512}))
          ;; Split into private key and chain code
          private-bytes (byte-array (take 32 raw))
          chain-code (byte-array (drop 32 raw))]

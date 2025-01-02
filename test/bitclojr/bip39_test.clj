@@ -994,7 +994,6 @@
                                             (bytes->mnemonic))
                         actual-hex-seed (mnemonic->seed actual-mnemonic "TREZOR")
                         actual-xkey (-> actual-hex-seed
-                                        codecs/hex->bytes
                                         b32/seed->hd-key
                                         b32/encode-hd-key)]
                     (is (= actual-mnemonic exp-mnemonic))

@@ -122,9 +122,7 @@
   (testing "Valid derive keys"
     (doseq [[seed test-vector] valid-test-vectors]
       (doseq [{:keys [chain pub prv]} test-vector]
-        (let [root-xprv (-> seed
-                            codecs/hex->bytes
-                            seed->hd-key)
+        (let [root-xprv (seed->hd-key seed)
               derived-xprv (path->child root-xprv chain)
               derived-xpub (private-key->public-key derived-xprv)]
           (is (ecc/private-key? root-xprv))
