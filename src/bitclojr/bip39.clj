@@ -27,9 +27,9 @@
   (let [folder (io/file folder-path)]
     (when (.isDirectory folder)
       (->> (.listFiles folder)
-           (filter #(.isFile %))       ;; Keep only files
-           (filter #(-> % .getName (clojure.string/ends-with? ".txt"))) ;; Keep .txt files
-           (map #(.getAbsolutePath %)))))) ;; Return absolute paths for each file
+           (filter #(.isFile ^java.io.File %))       ;; Keep only files
+           (filter #(-> ^java.io.File % .getName (clojure.string/ends-with? ".txt"))) ;; Keep .txt files
+           (map #(.getAbsolutePath ^java.io.File %)))))) ;; Return absolute paths for each file
 
 (defonce +word-list+ (->> "resources"
                           list-txt-files

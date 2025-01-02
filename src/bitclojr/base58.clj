@@ -49,7 +49,7 @@
      (letfn [(get-base-58-char [i]
                (get +alphabet+ i))]
        (let [b ((->codecs-fn in-key) in)
-             big-i (BigInteger. 1 b)]
+             big-i (BigInteger. 1 ^bytes b)]
          (loop [[q r] (divmod big-i 58)
                 result ()]
            (if (pos? q)
@@ -67,7 +67,7 @@
          :else
          (loop [i (bigint 1) j (count b58-str) result 0]
            (if (pos? j)
-             (recur (* i 58) (dec j) (+ result (* (b58-alpha->idx (get b58-str (dec j))) i)))
+             (recur (* i 58) (dec j) (+ result ^long (* (b58-alpha->idx (get b58-str (dec j))) i)))
              (let [maybe-signed-bytes (-> result biginteger .toByteArray)
                    result-bytes (if (zero? (first maybe-signed-bytes))
                                   (java.util.Arrays/copyOfRange maybe-signed-bytes 1 (count maybe-signed-bytes))
