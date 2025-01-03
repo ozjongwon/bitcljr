@@ -62,8 +62,7 @@
          chain-code (subvec entropy 0 32)
          pkey (subvec entropy 32)]
      (-> pkey
-         byte-array
-         (ecc/make-private-key (byte-array chain-code)
+         (ecc/make-private-key chain-code
                                (get-in net/+networks+ ["main" "xprv"]) 0 0 0)
          b32/encode-hd-key))))
 

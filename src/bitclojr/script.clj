@@ -131,7 +131,7 @@
                              :else (throw (ex-info "Invalid BECH32 address"
                                                    {:version ver
                                                     :data data})))]
-           `[~updated-ver ~(count data) ~@(vec (byte-array data))]))))
+           `[~updated-ver ~(count data) ~@(map #(util/unsigned->signed %) data)]))))
 
 (defn p2sh [script]
   (->P2SH `[0xa9 0x14 ~@(util/hash160 (:key script)) 0x87]))

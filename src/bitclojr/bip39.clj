@@ -3,7 +3,8 @@
             [clojure.string :as str]
             [buddy.core.hash :as hash]
             [buddy.core.kdf :as kdf]
-            [buddy.core.codecs :as codecs]))
+            [buddy.core.codecs :as codecs]
+            [bitclojr.util :as util]))
 
 (def ^:dynamic *lang-key*)
 
@@ -168,13 +169,9 @@
         checksum-bits (quot total-bits 32)
         total-mnemonic (-> (+ total-bits checksum-bits)
                            (quot +word-bit-lengh+))
-        checksum (-> (if (bytes? entropy)
-                       entropy
-                       (byte-array entropy))
+        checksum (-> (util/ensure-bytes entropy)
                      (hash/sha256))]
-    (-> (if (bytes? entropy)
-          (vec entropy)
-          entropy) ;; vector!
+    (-> (util/ensure-vector entropy)
         (into checksum)
         (extract-11-bits-dynamic total-mnemonic)
         indices->mnemonic)))

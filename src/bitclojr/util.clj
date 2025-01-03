@@ -6,6 +6,11 @@
         (bytes? seq-or-bytes) seq-or-bytes
         :else (throw (ex-info "Input must be sequential or bytes" {:input seq-or-bytes}))))
 
+(defn ensure-vector [seq-or-bytes]
+  (if (vector? seq-or-bytes)
+    seq-or-bytes
+    (vec seq-or-bytes)))
+
 (defn hash160 [x]
   (-> x hash/sha256 hash/ripemd160))
 
