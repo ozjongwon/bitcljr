@@ -28,8 +28,8 @@
                  codecs/hex->bytes
                  (mac/hash {:key "Bitcoin seed" :alg :hmac+sha512}))
          ;; Split into private key and chain code
-         private-bytes (byte-array (take 32 raw))
-         chain-code (byte-array (drop 32 raw))]
+         private-bytes (take 32 raw)
+         chain-code (drop 32 raw)]
      (ecc/validate-private-key private-bytes)
      (ecc/make-private-key private-bytes chain-code version 0 0 0))))
 
@@ -52,14 +52,16 @@
     (-> (if (hardened-index? index)
           `[~@(repeat (- 33 (count key)) 0x00)
             ~@key ~@(util/->n-byte-array index 4)]
-          `[~@(ecc/derive-secp256k1-public-key key) ~@(util/->n-byte-array index 4)])
+          `[~@(ecc/derive-secp256k1-public-key key)
+            ~@(util/->n-byte-array index 4)])
         (byte-array)))
 
   (make-hd-key [{:keys [key]} secret]
     (->> "secp256k1"
          CustomNamedCurves/getByName
          ( .getN)
-         (.mod (.add (BigInteger. 1 key) (BigInteger. 1 secret)))
+         (.mod (.add (BigInteger. 1 ^bytes (util/ensure-bytes key))
+                     (BigInteger. 1 ^bytes (util/ensure-bytes secret))))
          .toByteArray)))
 
 (extend-type bitclojr.ecc.PublicKey
@@ -74,8 +76,8 @@
     (let [curve (CustomNamedCurves/getByName "secp256k1")]
       (-> curve
           .getCurve
-          (.decodePoint key)
-          (.add (.multiply (.getG curve) (BigInteger. 1 raw-bytes)))
+          (.decodePoint (util/ensure-bytes key))
+          (.add (.multiply (.getG curve) (BigInteger. 1 (util/ensure-bytes raw-bytes))))
           (.getEncoded true)))))
 
 (defn key->version [key]
@@ -100,16 +102,17 @@
   (let [{:keys [key]} (if (ecc/private-key? ec-key)
                         (private-key->public-key ec-key)
                         ec-key)]
-    (->> key util/hash160 (take 4) byte-array)))
+    (->> key util/hash160 (take 4))))
 
 ;;https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#user-content-Private_parent_key_rarr_private_child_key
 (defn derive-child [{:keys [key chain-code depth] :as parent} index]
   (when (> index 0xFFFFFFFF)
     (throw (ex-info "Index must be: index <= 2^32" {:index index})))
-  (let [raw (mac/hash (make-child-data-bytes parent index) {:key chain-code :alg :hmac+sha512})
+  (let [raw (mac/hash (make-child-data-bytes parent index)
+                      {:key (util/ensure-bytes chain-code) :alg :hmac+sha512})
         ;; Split into key and chain code
-        raw-bytes (byte-array (take 32 raw))
-        child-chain-code (byte-array (drop 32 raw))
+        raw-bytes (take 32 raw)
+        child-chain-code (drop 32 raw)
         _ (assert (and (= (count raw-bytes) 32)
                        (= (count child-chain-code) 32)))
         child-key (make-hd-key parent raw-bytes)]
@@ -130,28 +133,21 @@
       parent)))
 
 (defn encode-hd-key [{:keys [key chain-code version depth version fingerprint child-index] :as key-record}]
-  (let [raw-key-bytes (let [len (count key)]
-                        (case len
-                          33 key
+  (let [padded-key (let [len (count key)]
+                     (case len
+                       33 key
 
-                          (31 32)
-                          (let [padded-bytes (byte-array 33)
-                                n-bytes (- 33 len)]
-                            (dotimes [i n-bytes]
-                              (aset-byte padded-bytes i 0x00))
-                            (->> key
-                                 count
-                                 (min 32)
-                                 (System/arraycopy key 0 padded-bytes n-bytes))
-                            padded-bytes)))]
+                       (31 32)
+                       `[~@(repeat (- 33 len) 0)
+                         ~@key]))]
     ;; Check with
     ;;https://learnmeabitcoin.com/technical/keys/hd-wallets/extended-keys/
-    (b58/encode-check (byte-array `[~@(vec version) ; 4 bytes
+    (b58/encode-check (byte-array `[~@version ; 4 bytes
                                     ~depth          ; 1 byte
-                                    ~@(vec fingerprint)    ; 4 bytes
-                                    ~@(vec (util/->n-byte-array child-index 4)) ; 4 bytes
-                                    ~@(vec chain-code) ; 32 bytes
-                                    ~@(vec raw-key-bytes)])
+                                    ~@fingerprint    ; 4 bytes
+                                    ~@(util/->n-byte-array child-index 4) ; 4 bytes
+                                    ~@chain-code ; 32 bytes
+                                    ~@padded-key])
                       :bytes)))
 
 (defn decode-hd-key [hd-key-str]
@@ -166,7 +162,7 @@
                 (conj result bytes)))
             depth-int (util/bytes->int depth)
             index-int (util/bytes->int index)
-            fingerprint-int (BigInteger. 1 (byte-array fingerprint))
+            fingerprint-int (BigInteger. 1 (util/ensure-bytes fingerprint))
             non-zero-raw-key (drop-while zero? raw-key)
             raw-key-byte (byte-array raw-key)]
         (cond  (and (= "xpub" vprefix) (not= 33 (count raw-key-byte)))
@@ -188,10 +184,12 @@
                (throw (ex-info "Wrong byte size or prefix for xprv" {:non-zero-raw-key non-zero-raw-key}))
 
                (and (= "xprv" vprefix)
-                    (not (< 0 (BigInteger. 1 raw-key-byte) (-> "secp256k1"
-                                                               CustomNamedCurves/getByName
-                                                               .getN))))
-               (throw (ex-info "The privkey is out of the EC range" {:key-int (BigInteger. 1 raw-key-byte)}))
+                    (not (< 0 (BigInteger. 1 (util/ensure-bytes raw-key-byte))
+                            (-> "secp256k1"
+                                CustomNamedCurves/getByName
+                                .getN))))
+               (throw (ex-info "The privkey is out of the EC range"
+                               {:key-int (BigInteger. 1 raw-key-byte)}))
 
 
                (not (<= 0 depth-int 255))
@@ -206,5 +204,5 @@
            "xprv" ecc/make-private-key
            ;; Only support xpub & Zpub
            ("Zpub" "xpub") ecc/make-public-key)
-         raw-key-byte (byte-array chain-code) ver (byte-array fingerprint) depth-int index-int))
+         raw-key-byte chain-code ver fingerprint depth-int index-int))
       (throw (ex-info "Unknown version" {:version (subs hd-key-str 0 4)})))))

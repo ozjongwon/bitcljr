@@ -1,6 +1,11 @@
 (ns bitclojr.util
   (:require [buddy.core.hash :as hash]))
 
+(defn ensure-bytes [seq-or-bytes]
+  (cond (sequential? seq-or-bytes) (byte-array seq-or-bytes)
+        (bytes? seq-or-bytes) seq-or-bytes
+        :else (throw (ex-info "Input must be sequential or bytes" {:input seq-or-bytes}))))
+
 (defn hash160 [x]
   (-> x hash/sha256 hash/ripemd160))
 
@@ -29,6 +34,15 @@
                    unsigned->signed
                    (aset-byte bytes idx))
               (recur (dec idx) (bit-shift-right v 8))))))))
+
+(defn ->n-vector [i n]
+  (loop [idx (dec n) v i result []]
+    (if (< idx 0)
+      result
+      (recur (dec idx) (bit-shift-right v 8) (->> 0xff
+                                                  (bit-and v)
+                                                  unsigned->signed
+                                                  (conj result))))))
 
 (defn bytes->int [barr]
   (reduce

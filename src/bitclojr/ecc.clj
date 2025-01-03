@@ -6,10 +6,12 @@
 (defrecord PrivateKey [key chain-code version fingerprint depth child-index])
 
 (defn make-private-key [key chain-code version fingerprint depth child-index]
-  (->PrivateKey key chain-code version
-                (if (int? fingerprint)
-                  (util/->n-byte-array 0 4)
-                  fingerprint)
+  ;; note: key can be bytes
+  (->PrivateKey key
+                chain-code
+                version
+                (cond (int? fingerprint) (util/->n-vector fingerprint 4)
+                      (sequential? fingerprint) fingerprint)
                 depth
                 child-index))
 
@@ -17,10 +19,10 @@
   (instance? PrivateKey k))
 
 (defn validate-private-key
-  [^bytes key-bytes]
-  (when-let [msg (cond (not= 32 (count key-bytes)) "The key byte size msut be 32"
+  [key-bytes-or-vec]
+  (when-let [msg (cond (not= 32 (count key-bytes-or-vec)) "The key byte size msut be 32"
 
-                       (not (< 0 (BigInteger. 1 key-bytes)
+                       (not (< 0 (BigInteger. 1 (util/ensure-bytes key-bytes-or-vec))
                                (-> "secp256k1"
                                    CustomNamedCurves/getByName
                                    .getN)))
@@ -36,6 +38,7 @@
   ([m]
    (map->PublicKey m))
   ([key chain-code version fingerprint depth child-index]
+   ;; note: key can be bytes
    (->PublicKey key chain-code version fingerprint depth child-index)))
 
 (defn derive-secp256k1-public-key
@@ -44,7 +47,7 @@
   ([raw-private-key scalar-to-add]
    (let [g (-> "secp256k1" CustomNamedCurves/getByName .getG)]
      (-> g
-         (.multiply (BigInteger. 1 raw-private-key)) ;; pub key1
+         (.multiply (BigInteger. 1 (util/ensure-bytes raw-private-key))) ;; pub key1
          (cond->                                     ;; pub key2 (by adding a point)
              scalar-to-add (.add (->> (BigInteger. 1 scalar-to-add)
                                       (.multiply g))))
