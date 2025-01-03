@@ -20,7 +20,7 @@
   (let [tweak (tagged-hash "TapTweak" `[~@k ~@(.getBytes h)])]
     (ecc/validate-private-key tweak)
     ;; compressed prefix - 0x02 == y coord is pos(or even), 0x03 == neg(odd)
-    (-> (byte-array `[0x02 ~@k])
+    (-> `[0x02 ~@k]
         (ecc/derive-secp256k1-public-key tweak)
         rest
         (#(ecc/make-public-key {:key %})))))
