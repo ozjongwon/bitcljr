@@ -23,7 +23,6 @@
     hardened))
 
 (defprotocol BIP44
-  (change-type [this])
   (discover-account [this master-private-key])
   (path->vector [this]))
 
@@ -36,10 +35,6 @@
 
 (defrecord BIP44Path [purpose coin-type account change address-index]
   BIP44
-  (change-type [this]
-    (case change
-      0 :external
-      1 :internal))
   (discover-account [this master-private-key]
     (assert (= purpose 44))
     (assert (contains? +known-coin-types+ coin-type)))

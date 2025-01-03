@@ -22,7 +22,7 @@
   [key-bytes-or-vec]
   (when-let [msg (cond (not= 32 (count key-bytes-or-vec)) "The key byte size msut be 32"
 
-                       (not (< 0 (BigInteger. 1 (util/ensure-bytes key-bytes-or-vec))
+                       (not (< 0 (BigInteger. 1 ^bytes (util/ensure-bytes key-bytes-or-vec))
                                (-> "secp256k1"
                                    CustomNamedCurves/getByName
                                    .getN)))
@@ -47,9 +47,9 @@
   ([raw-private-key scalar-to-add]
    (let [g (-> "secp256k1" CustomNamedCurves/getByName .getG)]
      (-> g
-         (.multiply (BigInteger. 1 (util/ensure-bytes raw-private-key))) ;; pub key1
+         (.multiply (BigInteger. 1  ^bytes (util/ensure-bytes raw-private-key))) ;; pub key1
          (cond->                                     ;; pub key2 (by adding a point)
-             scalar-to-add (.add (->> (BigInteger. 1 scalar-to-add)
+             scalar-to-add (.add (->> (BigInteger. 1 ^bytes scalar-to-add)
                                       (.multiply g))))
          (.getEncoded true)))))
 

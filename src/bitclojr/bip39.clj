@@ -53,7 +53,7 @@
    (mnemonic->indices mnemonic *lang-key*))
   ([mnemonic lang-key]
    (if-let [wdlist (get +word-list+ lang-key)]
-     (map #(if-let [found (.indexOf wdlist %)]
+     (map #(if-let [found (.indexOf wdlist ^String %)]
              found
              (throw (ex-info "Word is not in the dictionary!" {:word %})))
           mnemonic)
@@ -84,14 +84,14 @@
                 extracted-bits (bit-and (bit-shift-right combined shift-amount) 0x7FF) ; Extract the 11 bit
                 leftover-value (remove-first-n-bits +word-bit-lengh+ combined n-available-bits)] ; Get remaining bits
             (recur more-bytes
-                   leftover-value
-                   shift-amount
+                   (long leftover-value)
+                   (long shift-amount)
                    (conj result extracted-bits)
                    (dec count))) ; Add the 11 bits to the result
           ;; Not enough bits yet, so we accumulate more from the next byte
           (recur more-bytes
-                 combined
-                 n-available-bits
+                 (long combined)
+                 (long n-available-bits)
                  result
                  count))))))
 
@@ -112,15 +112,15 @@
     (cond (<= 8 carry-bits)
           (let [offset (- carry-bits 8)]
             (recur (cons num more-nums)
-                   (remove-first-n-bits 8 carry carry-bits)
+                   (long (remove-first-n-bits 8 carry carry-bits))
                    offset
                    (conj result (bit-shift-right carry offset))))
           num
           (let [offset (- 8 carry-bits)
                 to-byte (- +word-bit-lengh+ offset) ]
             (recur more-nums
-                   (remove-first-n-bits offset num +word-bit-lengh+)
-                   to-byte
+                   (long (remove-first-n-bits offset num +word-bit-lengh+))
+                   (long to-byte)
                    (conj result (bit-or (bit-shift-left carry offset) (bit-shift-right num to-byte)))))
 
           :finally  (if (and (zero? carry) (zero? carry-bits))
