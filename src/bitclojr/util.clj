@@ -1,10 +1,14 @@
 (ns bitclojr.util
-  (:require [buddy.core.hash :as hash]))
+  (:require [buddy.core.hash :as hash]
+            [buddy.core.codecs :as codecs]))
 
-(defn ensure-bytes [seq-or-bytes]
-  (cond (sequential? seq-or-bytes) (byte-array seq-or-bytes)
-        (bytes? seq-or-bytes) seq-or-bytes
-        :else (throw (ex-info "Input must be sequential or bytes" {:input seq-or-bytes}))))
+
+(defn ensure-bytes [in]
+  (cond (bytes? in) in
+        (sequential? in) (byte-array in)
+        (string? in) (codecs/hex->bytes in)
+        :else (throw (ex-info "Hex string or byte array is required"
+                              {:input in}))))
 
 (defn ensure-vector [seq-or-bytes]
   (if (vector? seq-or-bytes)

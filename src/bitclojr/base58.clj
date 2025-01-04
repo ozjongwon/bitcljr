@@ -15,12 +15,6 @@
 
 (defonce divmod (juxt quot mod))
 
-(defn- ensure-bytes [hex-or-bytes]
-  (cond (bytes? hex-or-bytes) hex-or-bytes
-        (string? hex-or-bytes) (codecs/hex->bytes hex-or-bytes)
-        :else (throw (ex-info "Hex string or byte array is required"
-                              {:input hex-or-bytes}))))
-
 (defn- ->codecs-fn [in]
   (if (= in :bytes)
     identity
