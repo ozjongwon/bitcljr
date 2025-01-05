@@ -203,6 +203,6 @@
         ((case vprefix
            "xprv" ecc/make-private-key
            ;; Only support xpub & Zpub
-           ("Zpub" "xpub") ecc/make-public-key)
+           ("xpub" "Zpub" "zpub") ecc/make-public-key)
          raw-key-byte chain-code ver fingerprint depth-int index-int))
       (throw (ex-info "Unknown version" {:version (subs hd-key-str 0 4)})))))

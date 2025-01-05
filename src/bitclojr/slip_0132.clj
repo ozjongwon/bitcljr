@@ -9,7 +9,7 @@
    ;; multisig
    ["wsh" "m/48'/0'/0'/2'"] "Zpub"})
 
-(defn get-address-types [{:keys [path script] :as ur-account}]
+(defn get-address-type [{:keys [path script] :as ur-account}]
   (get +script+path->address-type+ [script path]))
 
 ;; {:master-fingerprint "78ede2ce",
