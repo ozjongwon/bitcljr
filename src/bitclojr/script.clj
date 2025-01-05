@@ -41,7 +41,7 @@
                    util/hash160)
              0x88 0xac]))
 
-;; (p2pkh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
+;; (p2pkh (ecc/make-public-key {:key (byte-array (repeat 32 0x11))}))
 
 (defrecord P2SH [data]
   NonBech32
@@ -58,26 +58,6 @@
 (defrecord P2WPKH [data])
 (defrecord P2WSH [data])
 (defrecord P2TR [data])
-
-#_
-(defn address [p2-record]
-  (let [data (:data p2-record)]
-    (case (type p2-record)
-      (P2PKH P2SH)
-      (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" (network-key p2-record)])
-                                      ~@(subvec data
-                                                (data-start-index p2-record)
-                                                (data-end-index p2-record))])
-                        :bytes)
-      (P2WPKH P2WSH P2TR)
-      (let [op-n (first data)
-            version (cond (zero? op-n) 0
-                          (<= 0x51 op-n 0x60) (- op-n 0x50)
-                          :else (throw (ex-info "Invalid OP-n for witness version n"
-                                                {:version op-n})))]
-        (segaddr/encode (byte-array `[~@(get-in net/+networks+ ["main" "bech32"])
-                                      ~version
-                                      (subvec data 2)]))))))
 
 (defn address [p2-record]
   (let [data (:data p2-record)]
@@ -136,15 +116,12 @@
 (defn p2sh [script]
   (->P2SH `[0xa9 0x14 ~@(util/hash160 (:key script)) 0x87]))
 
-;; (p2sh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
+;; (p2sh (ecc/make-public-key {:key (byte-array (repeat 32 0x11))}))
 
-(defn p2wpkh [privkey]
-  (->P2WPKH `[0x00 0x14 ~@(-> privkey
-                              b32/private-key->public-key
-                              :key
-                              util/hash160)]))
+(defn p2wpkh [{:keys [key]}]
+  (->P2WPKH `[0x00 0x14 ~@(util/hash160 key)]))
 
-;;(p2wpkh (ecc/make-hd-public-key {:key (byte-array (repeat 32 0x11))}))
+;;(p2wpkh (ecc/make-public-key {:key (byte-array (repeat 32 0x11))}))
 
 (defn p2wsh [script]
   (->P2WSH `[0x00 0x20 ~@(hash/sha256 (:key script))]))
