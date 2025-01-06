@@ -27,11 +27,7 @@
   (data-start-index [this]
     3)
   (data-end-index [this]
-    23)
-  #_
-  (address [this]
-    (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" "p2pkh"])]) :bytes)
-    ~@(subvec data 3 23)))
+    23))
 
 (defn p2pkh [privkey]
   (->P2PKH `[0x76 0xa9 0x14
@@ -50,10 +46,7 @@
   (data-start-index [this]
     2)
   (data-end-index [this]
-    22)
-  #_
-  (address [this]
-    (b58/encode-check (byte-array `[~@(get-in net/+networks+ ["main" "p2sh"])]) :bytes) ~@(subvec data 2 22)))
+    22))
 
 (defrecord P2WPKH [data])
 (defrecord P2WSH [data])

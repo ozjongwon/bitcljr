@@ -139,8 +139,7 @@
                                                (map (fn [pkey]
                                                       [(b32/derive-child pkey 0)
                                                        (b32/derive-child pkey 1)]))
-                                               (apply map list)
-                                               )]
+                                               (apply map list))]
      (loop [gap +address-gap+
             receive-idx receive-address-index
             change-idx change-address-index
@@ -149,18 +148,16 @@
        (if (pos? gap)
          (recur (dec gap) (inc receive-idx) (inc change-idx)
                 (-> result
-                    (update :receive-addresses conj
-                            (->> receive-parents
-                                 (map #(b32/derive-child % receive-idx))
-                                 (util/sort-arrays :key)
-                                 (script/p2wsh m n)
-                                 script/address))
-                    (update :change-addresses conj
-                            (->> change-parents
-                                 (map #(b32/derive-child % receive-idx))
-                                 (util/sort-arrays :key)
-                                 (script/p2wsh m n)
-                                 script/address))))
+                    (update :receive-addresses conj (->> receive-parents
+                                                         (map #(b32/derive-child % receive-idx))
+                                                         (util/sort-arrays :key)
+                                                         (script/p2wsh m n)
+                                                         script/address))
+                    (update :change-addresses conj (->> change-parents
+                                                        (map #(b32/derive-child % change-idx))
+                                                        (util/sort-arrays :key)
+                                                        (script/p2wsh m n)
+                                                        script/address))))
          result)))))
 
 (defn generate-addresses [{:keys [wallet-type] :as wallet}]
