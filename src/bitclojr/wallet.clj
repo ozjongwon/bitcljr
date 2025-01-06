@@ -78,7 +78,7 @@
   ;; 48'(wsh) : multi-signed
   (let [path-record (b44/parse-path path)
         wallet-type (condp = (:purpose path-record)
-                      (b44/harden 84) :signle-sig
+                      (b44/harden 84) :single-sig
                       (b44/harden 48) :multi-sig
                       (throw (ex-info "Invalid path" {:path path})))]
     (->> (cond->> (make-key-store root-fingerprint chain-code key parent-fingerprint
@@ -129,9 +129,6 @@
                                                         script/address))))
          result)))))
 
-#_
-(generate-single-sig-addresses {:keystores {:xpub "zpub6rRcbeEEaQLJzvPMwFRgYrYthQjzZEJ56SF9qEqE9anp588FrTyzXUfCFak1PvVS5jx1en6K1vZ7nuPrueg1f3jZmDN6jELHbzEMaZZPFRB" :derivation "m/84'/0'/0'"}})
-
 (defn generate-multi-sig-addresses
   ([wallet m n]
    (generate-multi-sig-addresses wallet m n 0 0))
@@ -142,7 +139,8 @@
                                                (map (fn [pkey]
                                                       [(b32/derive-child pkey 0)
                                                        (b32/derive-child pkey 1)]))
-                                               (apply map list))]
+                                               (apply map list)
+                                               )]
      (loop [gap +address-gap+
             receive-idx receive-address-index
             change-idx change-address-index
@@ -182,6 +180,16 @@
    :path "m/84'/0'/0'",
    :script "wpkh"})
 
+#_
+(def ss-wallet {:label "fixme-label",
+                :wallet-type :single-sig,
+                :encrypt? false,
+                :keystores
+                {:label "fixme",
+                 :xpub
+                 "zpub6rRcbeEEaQLJzvPMwFRgYrYthQjzZEJ56SF9qEqE9anp588FrTyzXUfCFak1PvVS5jx1en6K1vZ7nuPrueg1f3jZmDN6jELHbzEMaZZPFRB",
+                 :root-fingerprint "224a5c23",
+                 :derivation "m/84'/0'/0'"}})
 #_
 (def ms-wallet {:label "fixme-label",
                 :wallet-type "2of3",
