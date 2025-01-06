@@ -132,16 +132,44 @@
 #_
 (generate-single-sig-addresses {:keystores {:xpub "zpub6rRcbeEEaQLJzvPMwFRgYrYthQjzZEJ56SF9qEqE9anp588FrTyzXUfCFak1PvVS5jx1en6K1vZ7nuPrueg1f3jZmDN6jELHbzEMaZZPFRB" :derivation "m/84'/0'/0'"}})
 
-(defn generate-multi-sig-addresses [{:keys [keystores] :as wallet}]
-  (mapv (fn [{:keys [xpub]}]
-          (let [pkey (b32/decode-hd-key xpub)]
-            pkey))
-        keystores))
+(defn generate-multi-sig-addresses
+  ([wallet m n]
+   (generate-multi-sig-addresses wallet m n 0 0))
+  ([{:keys [keystores] :as wallet} m n receive-address-index change-address-index]
+   (let [[receive-parents change-parents] (->> keystores
+                                               (map :xpub)
+                                               (map b32/decode-hd-key)
+                                               (map (fn [pkey]
+                                                      [(b32/derive-child pkey 0)
+                                                       (b32/derive-child pkey 1)]))
+                                               (apply map list))]
+     (loop [gap +address-gap+
+            receive-idx receive-address-index
+            change-idx change-address-index
+            result {:receive-addresses []
+                    :change-addresses []}]
+       (if (pos? gap)
+         (recur (dec gap) (inc receive-idx) (inc change-idx)
+                (-> result
+                    (update :receive-addresses conj
+                            (->> receive-parents
+                                 (map #(b32/derive-child % receive-idx))
+                                 (util/sort-arrays :key)
+                                 (script/p2wsh m n)
+                                 script/address))
+                    (update :change-addresses conj
+                            (->> change-parents
+                                 (map #(b32/derive-child % receive-idx))
+                                 (util/sort-arrays :key)
+                                 (script/p2wsh m n)
+                                 script/address))))
+         result)))))
 
 (defn generate-addresses [{:keys [wallet-type] :as wallet}]
-  (case wallet-type
-    :single-sig (generate-single-sig-addresses wallet)
-    :multi-sig (generate-multi-sig-addresses wallet)))
+  (if (= :single-sig wallet-type)
+    (generate-single-sig-addresses wallet)
+    (let [[m n] (->> (str/split wallet-type #"of") (map Integer/parseInt))]
+      (generate-multi-sig-addresses wallet m n))))
 
 #_
 (def ss-ex
@@ -153,12 +181,25 @@
    :depth 3,
    :path "m/84'/0'/0'",
    :script "wpkh"})
+
 #_
-(def ms-ex {:root-fingerprint "78ede2ce",
-            :chain-code
-            "aeb17b220446b72ac204b677067f3a21e2a3ba9683a5afcb229d5a82cb96ab02",
-            :parent-fingerprint "e6d8998e",
-            :key "0244432d006c357920078df950e5a1114756c925cfd07f7c1352f20c49fabf7b45",
-            :depth 4,
-            :path "m/48'/0'/0'/2'",
-            :script "wsh"})
+(def ms-wallet {:label "fixme-label",
+                :wallet-type "2of3",
+                :encrypt? false,
+                :keystores
+                [{:label "fixme1",
+                  :xpub
+                  "Zpub75nw3RWNVPpCF8P9n6T8tBY7Xh5AHekX5qSg6eta9fxWk3o8dM5WaeH1fXmTiJcDccvdcSRdXSNujS9CL57nve2bfMXq8hX5RvDWeaRrvB2",
+                  :root-fingerprint "78ede2ce",
+                  :derivation "m/48'/0'/0'/2'"}
+                 {:label "fixme2",
+                  :xpub
+                  "Zpub75JHhU2ZXHQhY2dEGhx1jMUQQ7KRD543rvuVMK5eXNyKhtPvQkQFoNaZDrzcvDdPJ6Tt4xog9j9ectayqDJbgEKAoygjU8kjXR4XR9tvHQE",
+                  :root-fingerprint "06877e2d",
+                  :derivation "m/48'/0'/0'/2'"}
+                 {:label "fixme3",
+                  :xpub
+                  "Zpub74FmDooresneZBcgnwYG2XzU8JXiJyYo4517p6MqZhub4GSzFnrWwAKAdyAJXw6wB2qU7PAre81tKszU29agLLKv2ryCAior3EgjN6HCdtL",
+                  :root-fingerprint "92ee5c12",
+                  :derivation "m/48'/0'/0'/2'"}
+                 ]})

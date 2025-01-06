@@ -123,8 +123,14 @@
 
 ;;(p2wpkh (ecc/make-public-key {:key (byte-array (repeat 32 0x11))}))
 
-(defn p2wsh [script]
-  (->P2WSH `[0x00 0x20 ~@(hash/sha256 (:key script))]))
+;;https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wsh
+(defn p2wsh [m n keys]
+  ;; OP_2 == 82, OP_3 == 83 OP_CHECKMULTISIG == 174
+  (->> `[~(+ m 80) ~@(mapcat :key keys) ~(+ n 80) 174]
+       byte-array
+       hash/sha256
+       (into [0x00 0x20])
+       ->P2WSH))
 
 (defn p2tr [{:keys [key]}]
   (->P2TR `[0x51 0x20 ~@(-> {:key key}

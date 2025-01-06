@@ -68,3 +68,23 @@
      (cond (= x el) idx
            x (recur xs (inc idx))
            :else nil))))
+
+(defn sort-arrays [k arrays]
+  (letfn [(array-comp [a1 a2]
+            (let [alen (count a1)]
+              (assert (= alen (count a2)))
+              (loop [i 0]
+                (if (= i alen)
+                  0
+                  (let [diff (compare (bit-and (aget a1 i) 0xff)
+                                      (bit-and (aget a2 i) 0xff))]
+                    (if (zero? diff)
+                      (recur (inc i))
+                      diff))))))]
+    (sort-by k array-comp arrays)))
+
+(comment
+  (sort-arrays identity [(buddy.core.codecs/hex->bytes "022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da")
+                         (buddy.core.codecs/hex->bytes "03e3818b65bcc73a7d64064106a859cc1a5a728c4345ff0b641209fba0d90de6e9")
+                         (buddy.core.codecs/hex->bytes "021f2f6e1e50cb6a953935c3601284925decd3fd21bc445712576873fb8c6ebc18")])
+  )
