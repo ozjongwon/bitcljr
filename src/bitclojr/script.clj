@@ -119,7 +119,10 @@
 ;;https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wsh
 (defn p2wsh [m n keys]
   ;; OP_2 == 82, OP_3 == 83 OP_CHECKMULTISIG == 174
-  (->> `[~(+ m 80) ~@(mapcat :key keys) ~(+ n 80) 174]
+  (->> `[~(+ m 80) ~@(mapcat #(let [k (:key %)]
+                                `[~(count k) ~@k])
+                             keys)
+         ~(+ n 80) 174]
        byte-array
        hash/sha256
        (into [0x00 0x20])
