@@ -9,45 +9,6 @@
 (def renderer
   (fx/create-renderer))
 
-(defn- with-tab-selection-props [props desc]
-  {:fx/type fx.ext.tab-pane/with-selection-props
-   :props props
-   :desc desc})
-
-(defn tab-pane [{:keys [items selection selection-capabilities]}]
-  {:pre [(set? selection-capabilities)]}
-  (let [selected-tab-id (-> selection sort first)
-        _ (assert selected-tab-id)]
-    (let-refs (into {}
-                    (map (fn [item]
-                           {:pre [(string? item)]}
-                           [item
-                            (merge
-                             {:fx/type :tab
-                              :graphic {:fx/type :label
-                                        :text item}
-                              :id item
-                              :closable false}
-                             (cond-> {}
-                                        ; buggy for :read'ing tabs
-                               (:write selection-capabilities)
-                               (assoc :content {:fx/type :label
-                                                :text item})
-
-                               (not (:write selection-capabilities))
-                               (assoc :disable (if selected-tab-id
-                                                 (not= item selected-tab-id)
-                                                 true))))]))
-                    items)
-      (with-tab-selection-props
-        (cond-> {}
-          (:read selection-capabilities) (assoc :selected-item (get-ref selected-tab-id))
-          (:write selection-capabilities) (assoc :on-selected-item-changed {:event/type ::select-tab}))
-        {:fx/type :tab-pane
-         :tabs (map #(-> (get-ref %)
-                         (assoc :fx/id %))
-                    items)}))))
-
 (defn add-header [title desc]
   {:fx/type :v-box
    :spacing 10
