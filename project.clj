@@ -14,6 +14,8 @@
                  [com.sparrowwallet/hummingbird "1.7.4"]
                  [camel-snake-kebab "0.4.3"]
                  [cljfx "1.9.3"]
+                 [cljfx/css "1.1.0"]
+
 
                  ;; [clj-okhttp/clj-okhttp "0.1.3"]
                  ;; [org.clojure/data.json "2.5.0"]
