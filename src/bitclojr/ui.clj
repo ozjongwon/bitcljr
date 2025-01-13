@@ -106,9 +106,10 @@
                         :style-class "section-tab"
                         :text tab-title}
               :closable false
-              :content {:fx/type :grid-pane
-                        :children []}}
-             [:content :children]
+              :content {:fx/type :scroll-pane
+                        :content {:fx/type :grid-pane
+                                  :children []}}}
+             [:content :content :children]
              into (->sections sections)))
 
 (defn- wallet-details [{:keys [keystores]}]
