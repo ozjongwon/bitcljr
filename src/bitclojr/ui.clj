@@ -28,8 +28,31 @@
 ;;;
 ;;; Layout, etc
 ;;;
-(def renderer
-  (fx/create-renderer))
+
+(def *state (atom {:wallet {:label "fixme-label",
+                            :wallet-type "2of3",
+                            :encrypt? false,
+                            :keystores
+                            [{:label "fixme1",
+                              :xpub
+                              "Zpub75nw3RWNVPpCF8P9n6T8tBY7Xh5AHekX5qSg6eta9fxWk3o8dM5WaeH1fXmTiJcDccvdcSRdXSNujS9CL57nve2bfMXq8hX5RvDWeaRrvB2",
+                              :root-fingerprint "78ede2ce",
+                              :derivation "m/48'/0'/0'/2'"}
+                             {:label "fixme2",
+                              :xpub
+                              "Zpub75JHhU2ZXHQhY2dEGhx1jMUQQ7KRD543rvuVMK5eXNyKhtPvQkQFoNaZDrzcvDdPJ6Tt4xog9j9ectayqDJbgEKAoygjU8kjXR4XR9tvHQE",
+                              :root-fingerprint "06877e2d",
+                              :derivation "m/48'/0'/0'/2'"}
+                             {:label "fixme3",
+                              :xpub
+                              "Zpub74FmDooresneZBcgnwYG2XzU8JXiJyYo4517p6MqZhub4GSzFnrWwAKAdyAJXw6wB2qU7PAre81tKszU29agLLKv2ryCAior3EgjN6HCdtL",
+                              :root-fingerprint "92ee5c12",
+                              :derivation "m/48'/0'/0'/2'"}
+                             ]}}))
+
+(declare root)
+
+(def renderer  (fx/create-renderer :middleware (fx/wrap-map-desc assoc :fx/type root :showing true)))
 
 (defn section-title [title row-idx]
   {:fx/type :label
@@ -87,7 +110,55 @@
              [:content :children]
              into (->sections sections)))
 
-(defn root [{:keys [showing selection]}]
+(defn- wallet-details [{:keys [keystores]}]
+  (if (rest keystores)
+    ["Mutil" "wpkh"]
+    ["Single" "wsh"]))
+
+{:label "fixme1",
+ :xpub
+ "Zpub75nw3RWNVPpCF8P9n6T8tBY7Xh5AHekX5qSg6eta9fxWk3o8dM5WaeH1fXmTiJcDccvdcSRdXSNujS9CL57nve2bfMXq8hX5RvDWeaRrvB2",
+ :root-fingerprint "78ede2ce",
+ :derivation "m/48'/0'/0'/2'"}
+
+(defn- keystores->map-list [keystores]
+  (map-indexed (fn [idx {:keys [label xpub root-fingerprint derivation]}]
+                 (let [xpk (->> (partition 5 xpub)
+                                (mapcat (fn [i chars]
+                                          (let [r (mod i 3)]
+                                            (if (zero? r)
+                                              chars
+                                              (repeat r \.))))
+                                        (range))
+                                (apply str))]
+                   {:section-title (str "Keystore-" idx)
+                    :fields [{:name "Type"
+                              :value "Airgapped Wallet"}
+                             {:name "Label"
+                              :value label
+                              :editable? true}
+                             {:name "Master Fingerprint"
+                              :value root-fingerprint}
+                             {:name "Derivation"
+                              :value derivation}
+                             {:name "Address"
+                              :value xpk}]}))
+               keystores))
+
+(defn key-management-tab [{:keys [wallet-type keystores]}]
+  (let [[policy script] (wallet-details keystores)]
+    (section-tab "Key Management"
+                 (into [{:section-title "Configuration"
+                         :fields [{:name "Policy Type"
+                                   :value policy
+                                   :editable? true}
+                                  {:name "Script Type"
+                                   :value wallet-type}
+                                  {:name "Script Policy"
+                                   :value script}]}]
+                       (keystores->map-list keystores)))))
+
+(defn root [{:keys [wallet showing]}]
   {:fx/type :stage
    :min-width 1024
    :min-height 768
@@ -97,27 +168,7 @@
            :stylesheets [(::css/url style)]
            :root {:fx/type :tab-pane
                   ;;                  :style-class "section"
-                  :tabs [(section-tab "Key Management"
-                                      [{:section-title "Configuration"
-                                        :fields [{:name "Policy Type"
-                                                  :value "Single or Multi"
-                                                  :editable? true}
-                                                 {:name "Script Type"
-                                                  :value "Value22(FIXME)"}
-                                                 {:name "Script Policy"
-                                                  :value "wpkh or wsh"}]}
-                                       {:section-title "Keystore"
-                                        :fields [{:name "Type"
-                                                  :value "Airgapped Wallet"}
-                                                 {:name "Label"
-                                                  :value "BitClojr"
-                                                  :editable? true}
-                                                 {:name "Master Fingerprint"
-                                                  :value "0x001122ff"}
-                                                 {:name "Derivation"
-                                                  :value "m/48'/0'/0'/2'"}
-                                                 {:name "Address"
-                                                  :value "zpub..."}]}])
+                  :tabs [(key-management-tab wallet)
                          (section-tab "Address Management"
                                       [{:section-title "Receive Addresses"
                                         :fields [{:name ""
@@ -130,5 +181,4 @@
                                                  {:name ""
                                                   :value "bc1..."}]}])]}}})
 
-(renderer {:fx/type root
-           :showing true})
+(fx/mount-renderer *state renderer)
