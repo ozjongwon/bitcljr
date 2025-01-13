@@ -6,7 +6,8 @@
             [cljfx.lifecycle :as lifecycle]
             [cljfx.ext.tree-view :as fx.ext.tree-view]
             [cljfx.css :as css]
-            [medley.core :as mc])
+            [medley.core :as mc]
+            [bitclojr.wallet :as wallet])
   ;;(:import [javafx.scene.control Tab TreeItem])
   )
 
@@ -63,7 +64,7 @@
    :grid-pane/valignment :center ;; or :baseline :bottom :top
    :text title})
 
-(defn section-field-name-value [{:keys [name value editable?]} row]
+(defn section-field-name-value [{:keys [name value button-text]} row]
   (cond-> [{:fx/type :label
             :style-class "section-field-name"
             :grid-pane/row row
@@ -79,10 +80,10 @@
             :grid-pane/row row
             :grid-pane/column 3
             :text value}]
-    editable? (conj {:fx/type :button
-                     :grid-pane/row row
-                     :grid-pane/column 4
-                     :text "Edit"})))
+    button-text (conj {:fx/type :button
+                       :grid-pane/row row
+                       :grid-pane/column 4
+                       :text button-text})))
 
 (defn ->sections [sections]
   (loop [[section & more-sections] sections orow 0 oresult []]
@@ -115,12 +116,6 @@
     ["Mutil" "wpkh"]
     ["Single" "wsh"]))
 
-{:label "fixme1",
- :xpub
- "Zpub75nw3RWNVPpCF8P9n6T8tBY7Xh5AHekX5qSg6eta9fxWk3o8dM5WaeH1fXmTiJcDccvdcSRdXSNujS9CL57nve2bfMXq8hX5RvDWeaRrvB2",
- :root-fingerprint "78ede2ce",
- :derivation "m/48'/0'/0'/2'"}
-
 (defn- keystores->map-list [keystores]
   (map-indexed (fn [idx {:keys [label xpub root-fingerprint derivation]}]
                  (let [xpk (->> (partition 5 xpub)
@@ -136,7 +131,7 @@
                               :value "Airgapped Wallet"}
                              {:name "Label"
                               :value label
-                              :editable? true}
+                              :button-text "Edit"}
                              {:name "Master Fingerprint"
                               :value root-fingerprint}
                              {:name "Derivation"
@@ -151,12 +146,29 @@
                  (into [{:section-title "Configuration"
                          :fields [{:name "Policy Type"
                                    :value policy
-                                   :editable? true}
+                                   :button-text "Edit"}
                                   {:name "Script Type"
                                    :value wallet-type}
                                   {:name "Script Policy"
                                    :value script}]}]
                        (keystores->map-list keystores)))))
+
+(defn address-management-tab [wallet]
+  (let [{:keys [receive-addresses change-addresses]}
+        (wallet/generate-addresses wallet)]
+    (section-tab "Address Management"
+                 [{:section-title "Receive Addresses"
+                   :fields (map (fn [addr]
+                                  {:name ""
+                                   :value addr
+                                   :button-text "Copy"})
+                                receive-addresses)}
+                  {:section-title "Change Addresses"
+                   :fields (map (fn [addr]
+                                  {:name ""
+                                   :value addr
+                                   :button-text "Copy"})
+                                change-addresses)}]))  )
 
 (defn root [{:keys [wallet showing]}]
   {:fx/type :stage
@@ -169,16 +181,6 @@
            :root {:fx/type :tab-pane
                   ;;                  :style-class "section"
                   :tabs [(key-management-tab wallet)
-                         (section-tab "Address Management"
-                                      [{:section-title "Receive Addresses"
-                                        :fields [{:name ""
-                                                  :value "bc1...."}
-                                                 {:name ""
-                                                  :value "bc1..."}]}
-                                       {:section-title "Change Addresses"
-                                        :fields [{:name ""
-                                                  :value "bc1...."}
-                                                 {:name ""
-                                                  :value "bc1..."}]}])]}}})
+                         (address-management-tab wallet)]}}})
 
 (fx/mount-renderer *state renderer)
