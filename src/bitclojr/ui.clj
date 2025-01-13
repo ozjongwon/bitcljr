@@ -41,6 +41,59 @@
 (def renderer
   (fx/create-renderer))
 
+(defn section-title [title row-idx]
+  {:fx/type :label
+   :style-class "section-title"
+   :grid-pane/row row-idx
+   :grid-pane/column 0
+   :grid-pane/halignment :right
+   :grid-pane/valignment :top
+   :text title})
+
+(defn section-field-name-value [{:keys [name value editable?]} row]
+  (cond-> [{:fx/type :label
+            :style-class "section-field-name"
+            :grid-pane/row row
+            :grid-pane/column 1
+            :text "name"}
+           {:fx/type :label
+            :style-class "section-field-separator"
+            :grid-pane/row row
+            :grid-pane/column 2
+            :text "\t"}
+           {:fx/type :label
+            :style-class "section-field-value"
+            :grid-pane/row row
+            :grid-pane/column 3
+            :text "Name(FIXME)"}]
+    editable? (conj {:fx/type :button
+                     :grid-pane/row row
+                     :grid-pane/column 4
+                     :text "Edit"})))
+
+(defn ->sections [sections]
+  (loop [[section & more-sections] sections orow 0 oresult []]
+    (if section
+      (recur more-sections
+             (inc orow)
+             (into oresult
+                   (loop [[field & more-fields] (:fields section) irow (inc orow) iresult [(section-title (:section-title section) orow)]]
+                     (if field
+                       (recur more-fields (inc irow) (into iresult (section-field-name-value field irow)))
+                       iresult))))
+      oresult)))
+
+(defn section-tab [tab-title sections]
+  (update-in {:fx/type :tab
+              :graphic {:fx/type :label
+                        :style-class "section-tab"
+                        :text tab-title}
+              :closable false
+              :content {:fx/type :grid-pane
+                        :children []}}
+             [:content :children]
+             into (->sections sections)))
+
 (defn root [{:keys [showing selection]}]
   {:fx/type :stage
    :min-width 1024
@@ -48,125 +101,35 @@
    :showing showing
    :title "BitCljr"
    :scene {:fx/type :scene
-           ;;           :stylesheets [(::css/url style)]
+           :stylesheets [(::css/url style)]
            :root {:fx/type :tab-pane
-                  ;;:style-class "section"
-                  :tabs [{:fx/type :tab
-                          :graphic {:fx/type :label
-                                    :text "Key Management"}
-                          :closable false
-                          :content {:fx/type :grid-pane
-                                    :children [{:fx/type :label
-                                                :grid-pane/row 0
-                                                :grid-pane/column 0
-                                                :grid-pane/halignment :right
-                                                :grid-pane/valignment :top
-                                                :text "Keystore"}
-                                               {:fx/type :label
-                                                :grid-pane/row 1
-                                                :grid-pane/column 1
-                                                :text "Label"}
-                                               {:fx/type :label
-                                                :grid-pane/row 1
-                                                :grid-pane/column 2
-                                                :text "\t"}
-                                               {:fx/type :label
-                                                :grid-pane/row 1
-                                                :grid-pane/column 3
-                                                :text "Name(FIXME)"}
-                                               {:fx/type :button
-                                                :grid-pane/row 1
-                                                :grid-pane/column 4
-                                                :text "Edit"}
-                                               {:fx/type :label
-                                                :grid-pane/row 2
-                                                :grid-pane/column 1
-                                                :text "Master Fingerprint"}
-                                               {:fx/type :label
-                                                :grid-pane/row 2
-                                                :grid-pane/column 2
-                                                :text "\t"}
-                                               {:fx/type :label
-                                                :grid-pane/row 2
-                                                :grid-pane/column 3
-                                                :text "Fingerprint(FIXME)"}
-                                               {:fx/type :label
-                                                :grid-pane/row 3
-                                                :grid-pane/column 1
-                                                :text "Derivation"}
-                                               {:fx/type :label
-                                                :grid-pane/row 3
-                                                :grid-pane/column 2
-                                                :text "\t"}
-                                               {:fx/type :label
-                                                :grid-pane/row 3
-                                                :grid-pane/column 3
-                                                :text "Derivation(FIXME)"}
-                                               {:fx/type :label
-                                                :grid-pane/row 4
-                                                :grid-pane/column 1
-                                                :text "Pub Key"}
-                                               {:fx/type :label
-                                                :grid-pane/row 4
-                                                :grid-pane/column 2
-                                                :text "\t"}
-                                               {:fx/type :label
-                                                :grid-pane/row 4
-                                                :grid-pane/column 3
-                                                :text "Pub key(FIXME)"}
-                                               ;; {:fx/type :label
-                                               ;;  :grid-pane/row 2
-                                               ;;  :grid-pane/column 1
-                                               ;;  :text "baz"}
-                                               ;; {:fx/type :label
-                                               ;;  :grid-pane/row 3
-                                               ;;  :grid-pane/column 0
-                                               ;;  :grid-pane/halignment :right
-                                               ;;  :grid-pane/valignment :top
-                                               ;;  :text "Message"}
-                                               ]}}
-                         {:fx/type :tab
-                          :graphic {:fx/type :label
-                                    :text "Address Management"}
-                          :closable false
-                          :content {:fx/type :grid-pane
-                                    :children [{:fx/type :label
-                                                :grid-pane/row 0
-                                                :grid-pane/column 0
-                                                :grid-pane/halignment :right
-                                                :grid-pane/valignment :top
-                                                :text "Commit SHA"}
-                                               {:fx/type :label
-                                                :grid-pane/row 0
-                                                :grid-pane/column 1
-                                                :grid-pane/valignment :top
-                                                :text "foo"}
-                                               {:fx/type :label
-                                                :grid-pane/row 1
-                                                :grid-pane/column 0
-                                                :grid-pane/halignment :right
-                                                :grid-pane/valignment :top
-                                                :text "Author"}
-                                               {:fx/type :label
-                                                :grid-pane/row 1
-                                                :grid-pane/column 1
-                                                :text "bar"}
-                                               {:fx/type :label
-                                                :grid-pane/row 2
-                                                :grid-pane/column 0
-                                                :grid-pane/halignment :right
-                                                :grid-pane/valignment :top
-                                                :text "Date"}
-                                               {:fx/type :label
-                                                :grid-pane/row 2
-                                                :grid-pane/column 1
-                                                :text "baz"}
-                                               {:fx/type :label
-                                                :grid-pane/row 3
-                                                :grid-pane/column 0
-                                                :grid-pane/halignment :right
-                                                :grid-pane/valignment :top
-                                                :text "Message"}]}}]}}})
+                  ;;                  :style-class "section"
+                  :tabs [(section-tab "Key Management"
+                                      [{:section-title "Keystore"
+                                        :fields [{:name "Name1"
+                                                  :value "Value11(FIXME)"}
+                                                 {:name "Name12"
+                                                  :value "Value12(FIXME)"
+                                                  :editable? true}]}
+                                       {:section-title "Section2"
+                                        :fields [{:name "Name21"
+                                                  :value "Value21(FIXME)"}
+                                                 {:name "Name22"
+                                                  :value "Value22(FIXME)"
+                                                  :editable? true}]}])
+                         (section-tab "Address Management"
+                                      [{:section-title "Receive Addresses"
+                                        :fields [{:name "Name1"
+                                                  :value "Value11(FIXME)"}
+                                                 {:name "Name12"
+                                                  :value "Value12(FIXME)"
+                                                  :editable? true}]}
+                                       {:section-title "Change Addresses"
+                                        :fields [{:name "Name21"
+                                                  :value "Value21(FIXME)"}
+                                                 {:name "Name22"
+                                                  :value "Value22(FIXME)"
+                                                  :editable? true}]}])]}}})
 
 (renderer {:fx/type root
            :showing true})
