@@ -8,8 +8,7 @@
             [cljfx.css :as css]
             [medley.core :as mc]
             [bitclojr.wallet :as wallet])
-  ;;(:import [javafx.scene.control Tab TreeItem])
-  )
+  (:import [javafx.scene.input Clipboard ClipboardContent]))
 
 ;;;
 ;;; Style
@@ -29,7 +28,6 @@
 ;;;
 ;;; Layout, etc
 ;;;
-
 (def *state (atom {:wallet {:label "fixme-label",
                             :wallet-type "2of3",
                             :encrypt? false,
@@ -64,7 +62,7 @@
    :grid-pane/valignment :center ;; or :baseline :bottom :top
    :text title})
 
-(defn section-field-name-value [{:keys [name value button-text]} row]
+(defn section-field-name-value [{:keys [name value button]} row]
   (cond-> [{:fx/type :label
             :style-class "section-field-name"
             :grid-pane/row row
@@ -80,10 +78,12 @@
             :grid-pane/row row
             :grid-pane/column 3
             :text value}]
-    button-text (conj {:fx/type :button
-                       :grid-pane/row row
-                       :grid-pane/column 4
-                       :text button-text})))
+    button (conj (let [{:keys [text on-action]} button ]
+                   (mc/assoc-some {:fx/type :button
+                                   :grid-pane/row row
+                                   :grid-pane/column 4
+                                   :text text}
+                                  :on-action on-action)))))
 
 (defn ->sections [sections]
   (loop [[section & more-sections] sections orow 0 oresult []]
@@ -132,7 +132,7 @@
                               :value "Airgapped Wallet"}
                              {:name "Label"
                               :value label
-                              :button-text "Edit"}
+                              :button {:text "Edit"}}
                              {:name "Master Fingerprint"
                               :value root-fingerprint}
                              {:name "Derivation"
@@ -147,12 +147,18 @@
                  (into [{:section-title "Configuration"
                          :fields [{:name "Policy Type"
                                    :value policy
-                                   :button-text "Edit"}
+                                   :button {:text "Edit"}}
                                   {:name "Script Type"
                                    :value wallet-type}
                                   {:name "Script Policy"
                                    :value script}]}]
                        (keystores->map-list keystores)))))
+
+(defn copy-to-clipboard [addr]
+  (let [clipboard (Clipboard/getSystemClipboard)
+        content (ClipboardContent.)]
+    (.putString content addr)
+    (.setContent clipboard content)))
 
 (defn address-management-tab [wallet]
   (let [{:keys [receive-addresses change-addresses]}
@@ -162,13 +168,17 @@
                    :fields (map (fn [addr]
                                   {:name ""
                                    :value addr
-                                   :button-text "Copy"})
+                                   :button {:text "Copy"
+                                            :on-action (fn [_]
+                                                         (copy-to-clipboard addr))}})
                                 receive-addresses)}
                   {:section-title "Change Addresses"
                    :fields (map (fn [addr]
                                   {:name ""
                                    :value addr
-                                   :button-text "Copy"})
+                                   :button {:text "Copy"
+                                            :on-action (fn [_]
+                                                         (copy-to-clipboard addr))}})
                                 change-addresses)}]))  )
 
 (defn root [{:keys [wallet showing]}]
