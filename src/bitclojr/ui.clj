@@ -149,18 +149,20 @@
                               :value xpk}]}))
                keystores))
 
-(defn key-management-tab [{:keys [wallet-type keystores]}]
-  (let [[policy script] (wallet-details keystores)]
+(defn key-management-tab [{:keys [fx/context]
+                           ;;[wallet-type keystores]
+                           }]
+  (let [[policy script] (wallet-details (fx/sub-val context get-in [:wallets 0 :keystores]))]
     (section-tab "Key Management"
                  (into [{:section-title "Configuration"
                          :fields [{:name "Policy Type"
                                    :value policy
                                    :button {:text "Edit"}}
                                   {:name "Script Type"
-                                   :value wallet-type}
+                                   :value (fx/sub-val context get-in [:wallets 0 :wallet-type])}
                                   {:name "Script Policy"
                                    :value script}]}]
-                       (keystores->map-list keystores)))))
+                       (keystores->map-list (fx/sub-val context get-in [:wallets 0 :keystores]))))))
 
 (defn copy-to-clipboard [addr]
   (let [clipboard (Clipboard/getSystemClipboard)
@@ -199,7 +201,8 @@
            :stylesheets [(::css/url style)]
            :root {:fx/type :tab-pane
                   ;;                  :style-class "section"
-                  :tabs [(key-management-tab (fx/sub-val context get-in [:wallets 0]))
+                  :tabs [{:fx/type key-management-tab}
+                         ;; (key-management-tab (fx/sub-val context get-in [:wallets 0]))
                          (address-management-tab (fx/sub-val context get-in [:wallets 0]))]}}})
 
 (fx/mount-renderer *wallet-context renderer)
