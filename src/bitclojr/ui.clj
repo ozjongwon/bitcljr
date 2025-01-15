@@ -1,5 +1,6 @@
 (ns bitclojr.ui
-  (:require [cljfx.api :as fx]
+  (:require [clojure.core.cache :as cache]
+            [cljfx.api :as fx]
             [cljfx.ext.list-view :as fx.ext.list-view]
             [cljfx.ext.tab-pane :as fx.ext.tab-pane]
             [cljfx.ext.table-view :as fx.ext.table-view]
@@ -28,30 +29,37 @@
 ;;;
 ;;; Layout, etc
 ;;;
-(def *state (atom {:wallet {:label "fixme-label",
-                            :wallet-type "2of3",
-                            :encrypt? false,
-                            :keystores
-                            [{:label "fixme1",
-                              :xpub
-                              "Zpub75nw3RWNVPpCF8P9n6T8tBY7Xh5AHekX5qSg6eta9fxWk3o8dM5WaeH1fXmTiJcDccvdcSRdXSNujS9CL57nve2bfMXq8hX5RvDWeaRrvB2",
-                              :root-fingerprint "78ede2ce",
-                              :derivation "m/48'/0'/0'/2'"}
-                             {:label "fixme2",
-                              :xpub
-                              "Zpub75JHhU2ZXHQhY2dEGhx1jMUQQ7KRD543rvuVMK5eXNyKhtPvQkQFoNaZDrzcvDdPJ6Tt4xog9j9ectayqDJbgEKAoygjU8kjXR4XR9tvHQE",
-                              :root-fingerprint "06877e2d",
-                              :derivation "m/48'/0'/0'/2'"}
-                             {:label "fixme3",
-                              :xpub
-                              "Zpub74FmDooresneZBcgnwYG2XzU8JXiJyYo4517p6MqZhub4GSzFnrWwAKAdyAJXw6wB2qU7PAre81tKszU29agLLKv2ryCAior3EgjN6HCdtL",
-                              :root-fingerprint "92ee5c12",
-                              :derivation "m/48'/0'/0'/2'"}
-                             ]}}))
+(def *wallet-context
+  (atom (fx/create-context {:wallets [{:label "fixme-label",
+                                       :wallet-type "2of3",
+                                       :encrypt? false,
+                                       :keystores
+                                       [{:label "fixme1",
+                                         :xpub
+                                         "Zpub75nw3RWNVPpCF8P9n6T8tBY7Xh5AHekX5qSg6eta9fxWk3o8dM5WaeH1fXmTiJcDccvdcSRdXSNujS9CL57nve2bfMXq8hX5RvDWeaRrvB2",
+                                         :root-fingerprint "78ede2ce",
+                                         :derivation "m/48'/0'/0'/2'"}
+                                        {:label "fixme2",
+                                         :xpub
+                                         "Zpub75JHhU2ZXHQhY2dEGhx1jMUQQ7KRD543rvuVMK5eXNyKhtPvQkQFoNaZDrzcvDdPJ6Tt4xog9j9ectayqDJbgEKAoygjU8kjXR4XR9tvHQE",
+                                         :root-fingerprint "06877e2d",
+                                         :derivation "m/48'/0'/0'/2'"}
+                                        {:label "fixme3",
+                                         :xpub
+                                         "Zpub74FmDooresneZBcgnwYG2XzU8JXiJyYo4517p6MqZhub4GSzFnrWwAKAdyAJXw6wB2qU7PAre81tKszU29agLLKv2ryCAior3EgjN6HCdtL",
+                                         :root-fingerprint "92ee5c12",
+                                         :derivation "m/48'/0'/0'/2'"}]}]}
+                           cache/lru-cache-factory)))
 
 (declare root)
 
-(def renderer  (fx/create-renderer :middleware (fx/wrap-map-desc assoc :fx/type root :showing true)))
+(def renderer
+  (fx/create-renderer :middleware (comp fx/wrap-context-desc
+                                        (fx/wrap-map-desc assoc :fx/type root))
+                      :opts {:fx.opt/type->lifecycle #(or (fx/keyword->lifecycle %)
+                                                          ;; For functions in `:fx/type` values, pass
+                                                          ;; context from option map to these functions
+                                                          (fx/fn->lifecycle-with-context %))}))
 
 (defn section-title [title row-idx]
   {:fx/type :label
@@ -181,17 +189,17 @@
                                                          (copy-to-clipboard addr))}})
                                 change-addresses)}]))  )
 
-(defn root [{:keys [wallet showing]}]
+(defn root [{:keys [fx/context]}]
   {:fx/type :stage
    :min-width 1024
    :min-height 768
-   :showing showing
+   :showing true
    :title "BitCljr"
    :scene {:fx/type :scene
            :stylesheets [(::css/url style)]
            :root {:fx/type :tab-pane
                   ;;                  :style-class "section"
-                  :tabs [(key-management-tab wallet)
-                         (address-management-tab wallet)]}}})
+                  :tabs [(key-management-tab (fx/sub-val context get-in [:wallets 0]))
+                         (address-management-tab (fx/sub-val context get-in [:wallets 0]))]}}})
 
-(fx/mount-renderer *state renderer)
+(fx/mount-renderer *wallet-context renderer)
