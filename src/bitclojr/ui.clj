@@ -149,9 +149,7 @@
                               :value xpk}]}))
                keystores))
 
-(defn key-management-tab [{:keys [fx/context]
-                           ;;[wallet-type keystores]
-                           }]
+(defn key-management-tab [{:keys [fx/context]}]
   (let [[policy script] (wallet-details (fx/sub-val context get-in [:wallets 0 :keystores]))]
     (section-tab "Key Management"
                  (into [{:section-title "Configuration"
@@ -170,9 +168,9 @@
     (.putString content addr)
     (.setContent clipboard content)))
 
-(defn address-management-tab [wallet]
+(defn address-management-tab [{:keys [fx/context]}]
   (let [{:keys [receive-addresses change-addresses]}
-        (wallet/generate-addresses wallet)]
+        (wallet/generate-addresses (fx/sub-val context get-in [:wallets 0]))]
     (section-tab "Address Management"
                  [{:section-title "Receive Addresses"
                    :fields (map (fn [addr]
@@ -202,7 +200,6 @@
            :root {:fx/type :tab-pane
                   ;;                  :style-class "section"
                   :tabs [{:fx/type key-management-tab}
-                         ;; (key-management-tab (fx/sub-val context get-in [:wallets 0]))
-                         (address-management-tab (fx/sub-val context get-in [:wallets 0]))]}}})
+                         {:fx/type address-management-tab}]}}})
 
 (fx/mount-renderer *wallet-context renderer)
