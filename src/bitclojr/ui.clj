@@ -162,32 +162,42 @@
                                    :value script}]}]
                        (keystores->map-list (fx/sub-val context get-in [:wallets 0 :keystores]))))))
 
-(defn copy-to-clipboard [addr]
+(defn copy-addr-to-clipboard [addr]
   (let [clipboard (Clipboard/getSystemClipboard)
         content (ClipboardContent.)]
     (.putString content addr)
     (.setContent clipboard content)))
 
+(defn- ensure-addresses [context i]
+  (let [addrs [(fx/sub-val context get-in [:wallets i :receive-addresses])
+               (fx/sub-val context get-in [:wallets i :change-addresses])]]
+    (if (every? empty? addrs)
+      (let [{:keys [receive-addresses change-addresses]}
+            (wallet/generate-addresses (fx/sub-val context get-in [:wallets 0]))]
+        (swap! *wallet-context fx/swap-context  assoc-in [:wallets i :receive-addresses] receive-addresses)
+        (swap! *wallet-context fx/swap-context  assoc-in [:wallets i :change-addresses] change-addresses)
+        [receive-addresses change-addresses])
+      addrs)))
+
 (defn address-management-tab [{:keys [fx/context]}]
-  (let [{:keys [receive-addresses change-addresses]}
-        (wallet/generate-addresses (fx/sub-val context get-in [:wallets 0]))]
+  (let [[receive-addresses change-addresses] (ensure-addresses context 0)]
     (section-tab "Address Management"
                  [{:section-title "Receive Addresses"
-                   :fields (map (fn [addr]
-                                  {:name ""
-                                   :value addr
-                                   :button {:text "Copy"
-                                            :on-action (fn [_]
-                                                         (copy-to-clipboard addr))}})
-                                receive-addresses)}
+                   :fields (map-indexed (fn [i addr]
+                                          {:name ""
+                                           :value addr
+                                           :button {:text "Copy"
+                                                    :on-action (fn [_]
+                                                                 (copy-addr-to-clipboard addr))}})
+                                        receive-addresses)}
                   {:section-title "Change Addresses"
-                   :fields (map (fn [addr]
-                                  {:name ""
-                                   :value addr
-                                   :button {:text "Copy"
-                                            :on-action (fn [_]
-                                                         (copy-to-clipboard addr))}})
-                                change-addresses)}]))  )
+                   :fields (map-indexed (fn [i addr]
+                                          {:name ""
+                                           :value addr
+                                           :button {:text "Copy"
+                                                    :on-action (fn [_]
+                                                                 (copy-addr-to-clipboard addr))}})
+                                        change-addresses)}])))
 
 (defn root [{:keys [fx/context]}]
   {:fx/type :stage
