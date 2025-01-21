@@ -15,15 +15,15 @@
                  [camel-snake-kebab "0.4.3"]
                  [cljfx "1.9.3"]
                  [cljfx/css "1.1.0"]
+                 [org.clojure/data.json "2.5.0"]
+                 [clj-http "3.13.0"]
+                 [clojure.java-time "1.4.3"]
 
-
-                 ;; [clj-okhttp/clj-okhttp "0.1.3"]
-                 ;; [org.clojure/data.json "2.5.0"]
                  ;; [org.clj-commons/gloss "0.3.6"]
                  ;; [ring/ring-core "1.13.0"]
                  ;; [ring/ring-json "0.5.1"]
                  ;; [aleph "0.8.1"]
                  ]
   ;; pushd ~/Work/aleph; rm -rf ~/.m2/repository/aleph/; lein pom; lein jar; lein install
-
+  :jvm-opts ["-Djdk.attach.allowAttachSelf=true"]
   :repl-options {:init-ns bitclojr.core})
