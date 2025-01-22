@@ -102,7 +102,6 @@
         (+ start-height)
         int)))
 
-
 (defn find-start-block [medium start-date-str current-height]
   (letfn [(height->block [height]
             (->> [(json-rpc medium "getblockhash" [height])]
@@ -115,11 +114,8 @@
                                                   (quot 2)
                                                   height->block)
               time-diff (- target-t time)]
-          (println "***" time-diff "(" target-t time ")" start-height end-height )
-
-          (cond (or (zero? time-diff)
-                    (and (pos? time-diff) (= start-height height))
-                    (and (neg? time-diff) (= end-height height))) block
+          (cond (or (<= (abs time-diff) 60) ;; 10 min
+                    (<= (- end-height start-height) 10)) block
                 (pos? time-diff) (recur height end-height)
                 :else (recur start-height height)))))))
 
