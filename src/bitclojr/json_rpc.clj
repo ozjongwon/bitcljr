@@ -79,26 +79,44 @@
           json/read-json
           :result))))
 
-(defonce +seconds-per-day+ (* 24 60 60))
+(defonce +genesis-block-info+ {:hash "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+                               :time 1231006505
+                               :height 0
+                               :merkleroot "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"
+                               :tx ["4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"]})
+
+(defn guess-num-blocks-a-day
+  ([current-height]
+   (guess-num-blocks-a-day (:time +genesis-block-info+) (quot (System/currentTimeMillis) 1000) current-height))
+  ([t0 t1 current-height]
+   (quot current-height (quot (- t1 t0) (* 24 60 60)))))
+
+(defn approximate-height
+  ([target-t {:keys [time height]}]
+   (approximate-height target-t (:time +genesis-block-info+) 0 time height))
+  ([target-t start-time start-height end-time end-height]
+   (->> start-height
+        (- end-height)
+        (* (/ (- target-t start-time)
+              (- end-time start-time)))
+        (+ start-height)
+        int)))
+
 
 (defn find-start-block [medium start-date-str current-height]
   (letfn [(height->block [height]
             (->> [(json-rpc medium "getblockhash" [height])]
-                 (json-rpc medium "getblock")) )
-          (approximate-height [target-t end-height]
-            (let [blocks-per-day 144
-                  end-block (height->block end-height)
-                  days-diff (quot (- (:time end-block) target-t) 86400)
-                  approx-height (max 0 (- end-height (* blocks-per-day days-diff)))]
-              [approx-height end-height]))]
-    (let [target-t (parse-date-to-timestamp start-date-str)
-          [height0 heightn] (approximate-height target-t current-height)]
-      (loop [start-height height0 end-height heightn]
+                 (json-rpc medium "getblock")) )]
+    (let [target-t (parse-date-to-timestamp start-date-str)]
+      (loop [start-height (approximate-height target-t (height->block current-height))
+             end-height (min current-height (int (* start-height 1.05)))]
         (let [{:keys [time height] :as block} (-> start-height
                                                   (+ end-height)
                                                   (quot 2)
                                                   height->block)
               time-diff (- target-t time)]
+          (println "***" time-diff "(" target-t time ")" start-height end-height )
+
           (cond (or (zero? time-diff)
                     (and (pos? time-diff) (= start-height height))
                     (and (neg? time-diff) (= end-height height))) block
