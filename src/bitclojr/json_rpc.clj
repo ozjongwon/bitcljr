@@ -119,38 +119,66 @@
                 (pos? time-diff) (recur height end-height)
                 :else (recur start-height height)))))))
 
-(defn build-tx-history [medium start-date]
-  (let [current-height (json-rpc medium "getblockcount" [])
-        {:keys [height] :as start-block} (find-start-block medium start-date current-height)
-        script-pubkey-entry (->> (inc current-height)
-                                 (range height)
-                                 ;;(#(do (println "***0 " %) %))
-                                 (partition 100 100 nil)
-                                 (map (fn [heights]
-                                        (map (fn [h]
-                                               {:method "getblockhash" :params [h]})
-                                             heights)))
-                                 (map #(json-rpc medium %))
-                                 (map (fn [hashes]
-                                        (map (fn [hash]
-                                               ;;  verbosity 2
-                                               {:method "getblock" :params [hash 2]})
-                                             hashes)))
-                                 (map #(json-rpc medium %))
+(defn- blocks->tx-history [blocks receive-set change-set]
+  (letfn [(vout-entry->history [{:keys [value n scriptPubKey] :as vout-entry}]
+            (let [address (:address scriptPubKey)]
+              (cond (contains? receive-set address) [{:receive vout-entry}]
+                    (contains? change-set address) [{:change vout-entry}]
+                    :else nil)))
+          (tx-entry->history [{:keys [vout txid] :as tx}]
+            (let [l (mapcat vout-entry->history vout)]
+              (when-not (empty? l)
+                [(assoc (first l) :txid txid)])))
+          (block->tx-history [block]
+            (mapcat tx-entry->history (:tx block)))]
+    (mapcat block->tx-history blocks)))
 
-                                 (mapcat (fn [x]
-                                           (->> x
-                                                (mapcat :tx)
-                                                (mapcat :vout)
-                                                (map :scriptPubKey)
-                                                ;; (#(do (println "***0 " %) %))
-                                                ;; (map :address)
-                                                ;; (#(do (println "***1 " %) %))
-                                                ))))]
-    (for [pkey-entry script-pubkey-entry
-          :let [addr (:address pkey-entry)]
-          :when (and addr (re-matches #"^bc1.+" addr))]
-      addr)))
+(defn build-tx-history [medium start-date {:keys [receive-addresses change-addresses] :as wallet-addresses}]
+  (let [receive-set (set receive-addresses)
+        change-set (set change-addresses)
+        current-height (json-rpc medium "getblockcount" [])
+        {:keys [height] :as start-block} (find-start-block medium start-date current-height)]
+    (->> (inc current-height)
+         (range height)
+         ;;(#(do (println "***0 " %) %))
+         (partition 100 100 nil)
+         (map (fn [heights]
+                (map (fn [h]
+                       {:method "getblockhash" :params [h]})
+                     heights)))
+         (map #(json-rpc medium %))
+         (map (fn [hashes]
+                (map (fn [hash]
+                       ;;  verbosity 2
+                       {:method "getblock" :params [hash 2]})
+                     hashes)))
+         (map #(json-rpc medium %))
+         (mapcat #(blocks->tx-history % receive-set change-set))
+
+         #_
+         (mapcat (fn [x]
+                   (->> x
+                        (mapcat :tx)
+                        (mapcat :vout)
+                        (map :scriptPubKey)
+                        ;; (#(do (println "***0 " %) %))
+                        ;; (map :address)
+                        ;; (#(do (println "***1 " %) %))
+                        ))))))
+
+(comment
+  (map #(blocks->tx-history %
+                            (set ["bc1q0yz9ce4t6fg7vl5fzrcx25jpmqt9djjm09n902" "bc1qh9d79urddnfz9mm0cdq3fhd6pqwgk9d8qxzrsj"])
+                            (set ["bc1qyc6scyyxpzxqgmxgnas5pjqrrgeaenaqhkr20z" "bc1q6yd9atz67wcv54ma56k226fcgrnwpewj3gxx37"]))
+       x)
+
+
+
+  (mapcat #(blocks->tx-history %
+                               (set ["bc1qaqzsns8r07wc4dtwhy2nqrs7nuv09kxv9mz9kd7cxsm7x688y5qq2aaugg" "bc1q8gzeezksvpe5fcfmwspz7rsj7u7hcdyx3ve9je"])
+                               (set ["bc1q7pwfw53swgyudn3htgma20nvxhrw6j5vlh768y" "bc1qwzspslasrk5ez7e6yem7vzze48898eqdf30m5a"]))
+          x)
+  )
 
 ;; (json-rpc +http-medium+ "getblockcount" [])
 (comment
