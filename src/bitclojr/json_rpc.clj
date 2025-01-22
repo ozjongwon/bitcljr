@@ -121,31 +121,36 @@
 
 (defn build-tx-history [medium start-date]
   (let [current-height (json-rpc medium "getblockcount" [])
-        {:keys [height] :as start-block} (find-start-block medium start-date current-height)]
-    (->> (inc current-height)
-         (range height)
-         (partition 100)
-         (map (fn [heights]
-                (map (fn [h]
-                       {:method "getblockhash" :params [h]})
-                     heights)))
-         (map #(json-rpc medium %))
-         ;;(#(do (println "***1 " %) %))
-         (map (fn [hashes]
-                (map (fn [hash]
-                       ;;  verbosity 2
-                       {:method "getblock" :params [hash 2]})
-                     hashes)))
-         ;;(#(do (println "***2 " %) %))
-         (map #(json-rpc medium %))
-         (map :tx)
-         )
+        {:keys [height] :as start-block} (find-start-block medium start-date current-height)
+        script-pubkey-entry (->> (inc current-height)
+                                 (range height)
+                                 ;;(#(do (println "***0 " %) %))
+                                 (partition 100 100 nil)
+                                 (map (fn [heights]
+                                        (map (fn [h]
+                                               {:method "getblockhash" :params [h]})
+                                             heights)))
+                                 (map #(json-rpc medium %))
+                                 (map (fn [hashes]
+                                        (map (fn [hash]
+                                               ;;  verbosity 2
+                                               {:method "getblock" :params [hash 2]})
+                                             hashes)))
+                                 (map #(json-rpc medium %))
 
-    ;;start-block
-
-
-    ))
-
+                                 (mapcat (fn [x]
+                                           (->> x
+                                                (mapcat :tx)
+                                                (mapcat :vout)
+                                                (map :scriptPubKey)
+                                                ;; (#(do (println "***0 " %) %))
+                                                ;; (map :address)
+                                                ;; (#(do (println "***1 " %) %))
+                                                ))))]
+    (for [pkey-entry script-pubkey-entry
+          :let [addr (:address pkey-entry)]
+          :when (and addr (re-matches #"^bc1.+" addr))]
+      addr)))
 
 ;; (json-rpc +http-medium+ "getblockcount" [])
 (comment
